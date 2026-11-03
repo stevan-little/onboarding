@@ -31,3 +31,7 @@ Things the code doesn't answer. Ask a human; record the answer and who gave it.
 | 25 | Is there a plan to share feature code between training (odysee-ds) and inference (`gold.schedule_revenue.py`)? | Functions are duplicated with no parity check; the JSX pipeline has `test_feature_parity.py`. | |
 | 26 | Why is `model_drift_monitor` paused in staging and prod? | `resources/environments/*.tfvars`. | |
 | 27 | Should the unused `ml_disrupted_leg_model_name` Terraform variable drive `silver.disrupted_revenue_prediction_leg.py`, which hard-codes the model name? | Declared in every tfvars, passed to no job. | |
+| 28 | Is environment-wide serialization of schedule processing (one upload at a time, forced by the shared `connectivity_temp_connections` scratch table) a known throughput limit? | `jobs/connectivity_v2.py:1155-1162`; `max_concurrent_runs = 1` on the master DAG. | |
+| 29 | Should "valid connection" (max connection time, max stops) be the same in Connectivity, Guest Disruptions and the optimizers? | 6 h flat vs 6 h/12 h vs carrier data (see 07). | |
+| 30 | Should Connectivity opportunity values use the same hour-smoothing as the optimizers? | Warehouse scoring has none (see 07, finding 2). | |
+| 31 | Are the Stations section and the Network Overview page (v1 routes) dead code? | No backend routes for either. | |
