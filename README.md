@@ -23,6 +23,7 @@ Not production code. Nothing here is deployed.
    platform: adapters, the standard layer, contracts and gates, and where the migration really stands.
 9. [docs/glossary.md](docs/glossary.md) — airline and Databricks vocabulary you will hit immediately.
 10. [docs/open-questions.md](docs/open-questions.md) — things the code doesn't answer; ask a human.
+   Prioritised one-pager (shared doc): [Onboarding: open questions, prioritised](https://claude.ai/artifact/4HP4HUsRtsDamkzK3zocxr).
 
 ## Layout
 
