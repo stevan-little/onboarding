@@ -128,7 +128,9 @@ consumers: [platform.itineraries]
 
 **[ran]** On this checkout: `make test` 255 passed (2 s); `make contracts` "43 (8 draft)";
 `make literals` ok; `make validate-config` ok against `odysee-infra@b315c01a`, with one expected
-warning (Alaska demo uses a legacy catalog). Spark tests: see findings.
+warning (Alaska demo uses a legacy catalog). The 339 Spark tests (`make test-spark`, local
+Spark + Delta on Java 21) **did not finish**: the run was still going when it hit a 25-minute limit
+and was stopped, so I have no pass/fail result for them. CI runs them in its own job.
 
 ---
 
