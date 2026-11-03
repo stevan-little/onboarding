@@ -35,3 +35,7 @@ Things the code doesn't answer. Ask a human; record the answer and who gave it.
 | 29 | Should "valid connection" (max connection time, max stops) be the same in Connectivity, Guest Disruptions and the optimizers? | 6 h flat vs 6 h/12 h vs carrier data (see 07). | |
 | 30 | Should Connectivity opportunity values use the same hour-smoothing as the optimizers? | Warehouse scoring has none (see 07, finding 2). | |
 | 31 | Are the Stations section and the Network Overview page (v1 routes) dead code? | No backend routes for either. | |
+| 32 | Under `catalog_override` (staging/prod/demo), the Alaska adapter's tables resolve to the same names the warehouse's DLT pipelines write (e.g. `alaska_sierra_staging_catalog.bronze.dap_current_bookings`). How is a collision avoided when adapter jobs run there? | `odysee-data-platform/src/odysee_data/core/naming.py:117-143`, `config/tenants/alaska.yaml`. | |
+| 33 | Who runs the data-platform jobs while every schedule is paused, and how do 24-hour freshness SLAs hold? | `schedules_paused: true` in every environment. | |
+| 34 | Have data-platform staging/prod ever been released? | No tags in this clone. | |
+| 35 | What is BA's source format, and who writes its adapter? | BA is provisioned in infra but has no config or adapter. | |

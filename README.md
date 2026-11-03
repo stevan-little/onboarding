@@ -19,8 +19,10 @@ Not production code. Nothing here is deployed.
    figure: ML basics, what's predicted, the model stack, how it reaches production, how far to trust it.
 7. [docs/07-connectivity-intelligence.md](docs/07-connectivity-intelligence.md) — served markets and
    near-miss connection opportunities: the binary-search engine, ranking, impacts and valuation.
-8. [docs/glossary.md](docs/glossary.md) — airline and Databricks vocabulary you will hit immediately.
-9. [docs/open-questions.md](docs/open-questions.md) — things the code doesn't answer; ask a human.
+8. [docs/08-data-platform-adapters.md](docs/08-data-platform-adapters.md) — the multi-tenant data
+   platform: adapters, the standard layer, contracts and gates, and where the migration really stands.
+9. [docs/glossary.md](docs/glossary.md) — airline and Databricks vocabulary you will hit immediately.
+10. [docs/open-questions.md](docs/open-questions.md) — things the code doesn't answer; ask a human.
 
 ## Layout
 
