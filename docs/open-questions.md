@@ -50,3 +50,8 @@ A prioritised one-pager of these, for discussing with a manager, is a shared doc
 | 42 | Is there a plan for API-side authorization (organization + role on every route), or is frontend-only enforcement a deliberate choice? | Roles exist only in `apps/web/src/lib/admin.ts`. | |
 | 43 | What is the "backoffice" application that holds Clerk OAuth credentials for the API, and where is its code? | `CLERK_BACKOFFICE_OAUTH_CLIENT_ID`; not in any repo I can see. | |
 | 44 | Which catalogs is schedule-service's Databricks service principal granted on? | One principal, `all-apis` scope, for every API request. | |
+| 45 | Does anything outside the repos (uptime checker, Vercel alerts) watch the production API and site? Nothing in the repos alerts on errors or outages. | No alarms, no error tracking; `/healthcheck` returns "ok" without touching dependencies (see 12). | |
+| 46 | Is the warehouse's data-quality notifier meant to be on? No pipeline calls it. | `src/data_quality/notifier.py` is only called from `engine.py`, which nothing uses. | |
+| 47 | Is the Datadog rollout beyond dev planned (`adr/00018`)? | Agent and integration exist in dev only. | |
+| 48 | Which Slack channel do people actually watch for warehouse job failures, and are slow-run warnings noise? | One destination for all 72 jobs; data platform uses per-tenant channels. | |
+| 49 | Is sending user email, name and org name to Vercel Analytics covered by the privacy policy and customer DPAs? | `apps/web/src/app/actions/analytics/track.ts`. | |

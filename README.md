@@ -27,8 +27,10 @@ Not production code. Nothing here is deployed.
     and commit/AI rules for every repo, side by side. Read before a first PR.
 11. [docs/11-auth-and-tenancy.md](docs/11-auth-and-tenancy.md) — staff, customer and machine identities;
     what the API checks on each request; where customer isolation holds and where it stops.
-12. [docs/glossary.md](docs/glossary.md) — airline and Databricks vocabulary you will hit immediately.
-13. [docs/open-questions.md](docs/open-questions.md) — things the code doesn't answer; ask a human.
+12. [docs/12-observability.md](docs/12-observability.md) — logs, metrics and alerts per component; the
+    Datadog plan versus reality; what nobody is watching.
+13. [docs/glossary.md](docs/glossary.md) — airline and Databricks vocabulary you will hit immediately.
+14. [docs/open-questions.md](docs/open-questions.md) — things the code doesn't answer; ask a human.
    Prioritised one-pager (shared doc): [Onboarding: open questions, prioritised](https://claude.ai/artifact/4HP4HUsRtsDamkzK3zocxr).
 
 ## Layout
