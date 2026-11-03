@@ -11,8 +11,10 @@ Not production code. Nothing here is deployed.
    flight, leg, booking, itinerary, O&D, coupon), how they relate, and how products join them.
 3. [docs/03-guest-disruptions.md](docs/03-guest-disruptions.md) — one product traced from the
    React page through the API and SQL to the Databricks job DAG and its algorithms.
-4. [docs/glossary.md](docs/glossary.md) — airline and Databricks vocabulary you will hit immediately.
-5. [docs/open-questions.md](docs/open-questions.md) — things the code doesn't answer; ask a human.
+4. [docs/04-aws-infrastructure.md](docs/04-aws-infrastructure.md) — AWS and Databricks from first
+   principles: accounts, IAM roles, VPCs, how one client's data is walled off, how Terraform applies.
+5. [docs/glossary.md](docs/glossary.md) — airline and Databricks vocabulary you will hit immediately.
+6. [docs/open-questions.md](docs/open-questions.md) — things the code doesn't answer; ask a human.
 
 ## Layout
 

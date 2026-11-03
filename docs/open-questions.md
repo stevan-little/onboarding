@@ -4,7 +4,7 @@ Things the code doesn't answer. Ask a human; record the answer and who gave it.
 
 | # | Question | Why it's unclear | Answer |
 |---|---|---|---|
-| 1 | Who created the four AWS Databricks workspaces the warehouse deploys to? | `odysee-infra/README.md` says it has created none; `odysee-data-warehouse/resources/environments/*.tfvars` points at four. | |
+| 1 | Who created the four AWS Databricks workspaces the warehouse deploys to? | `odysee-infra/README.md` says it has created none; `odysee-data-warehouse/resources/environments/*.tfvars` points at four. | **Probably answered (see 04):** `odysee-infra/stacks/environment` has tfvars for all of them; the README status block is stale. Confirm. |
 | 2 | Is the Azure workspace still serving anything in production, or is it only an export source now? | `migration-export` stack expires 2026-11-18; schedule-service egress still lists `login.microsoftonline.com` (`schedule-service/infra/README.md`). | |
 | 3 | Where is `odysee-mlops`, and do I need access? | Referenced by infra ADR 00021 and data-platform README as the owner of models; not in my repo list. | |
 | 4 | What is the full chain of jobs after an SSIM upload? | Only the first job ID is in `schedule-service/settings.py`; the rest is in warehouse Terraform. | |
@@ -18,3 +18,7 @@ Things the code doesn't answer. Ask a human; record the answer and who gave it.
 | 12 | Is "N moved" on the Guest Disruptions table meant to count distinct shift *sizes*? "Not found" can only ever be 0 or 1. | The API counts `DISTINCT disruption_reason`, and that text embeds the minutes (`services/disruption.py`, `gold.guest_disruptions_v2.py`). | |
 | 13 | Do disruption alternatives deliberately ignore seat availability? | `disruption_alternatives_v2.py` filters on time, connections, MCT and carrier, but not on free seats. | |
 | 14 | Should the "not found" thresholds be unified? (`9999` in the pipeline and API, `< 1440` in the reason text) | Two repos depend on the same magic numbers. | |
+| 15 | Is someone handling the `migration-export` stack's expiry on 2026-11-18, and its hand-made static AWS key? | `odysee-infra/stacks/migration-export/README.md`. | |
+| 16 | Can schedule-service's `temporary-network` VPC be deleted now that the real dev VPC exists? Its range `10.95.96.0/20` is also demo's. | `schedule-service/infra/stacks/temporary-network/README.md` vs `odysee-infra/stacks/environment/README.md`. | |
+| 17 | Which region will `odysee-ml-prod` use? | `adr/00016` lists us-west-2; `adr/00022` says eu-central-1, pending CTO/legal. | |
+| 18 | How do I get AWS and Databricks access, and who owns the Google Workspace groups? | `adr/00017`. | |
