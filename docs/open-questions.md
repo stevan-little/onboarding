@@ -46,3 +46,7 @@ A prioritised one-pager of these, for discussing with a manager, is a shared doc
 | 38 | Who maintains the curated Before/After CSV that defines attribution pairs, and how are the choices reviewed? | `jobs/reprocess_attribution_pairs_loop.py`; the headline ROI depends on it. | |
 | 39 | Is preserved/incremental revenue presented to customers as an upper bound? | Full booked fares count, with no counterfactual for rebooking or for passengers who'd have booked another flight (see 09). | |
 | 40 | schedule-service's README links to `docs/cicd.md` and `docs/branch-protection.md`, which don't exist. Where did they go? | No `docs/` folder in the repo. | |
+| 41 | Is Clerk sign-up open or invite-only (restricted mode) in each environment? The API accepts any valid session for the instance, with no organization or role check. | Stock `<SignUp />` page; `core/auth.py` reads only `user_id`/`session_id` (see 11). | |
+| 42 | Is there a plan for API-side authorization (organization + role on every route), or is frontend-only enforcement a deliberate choice? | Roles exist only in `apps/web/src/lib/admin.ts`. | |
+| 43 | What is the "backoffice" application that holds Clerk OAuth credentials for the API, and where is its code? | `CLERK_BACKOFFICE_OAUTH_CLIENT_ID`; not in any repo I can see. | |
+| 44 | Which catalogs is schedule-service's Databricks service principal granted on? | One principal, `all-apis` scope, for every API request. | |

@@ -25,8 +25,10 @@ Not production code. Nothing here is deployed.
    and "incremental" booked revenue are defined, produced and should be read.
 10. [docs/10-how-code-ships.md](docs/10-how-code-ships.md) — branches, deploys, approvals, local checks
     and commit/AI rules for every repo, side by side. Read before a first PR.
-11. [docs/glossary.md](docs/glossary.md) — airline and Databricks vocabulary you will hit immediately.
-12. [docs/open-questions.md](docs/open-questions.md) — things the code doesn't answer; ask a human.
+11. [docs/11-auth-and-tenancy.md](docs/11-auth-and-tenancy.md) — staff, customer and machine identities;
+    what the API checks on each request; where customer isolation holds and where it stops.
+12. [docs/glossary.md](docs/glossary.md) — airline and Databricks vocabulary you will hit immediately.
+13. [docs/open-questions.md](docs/open-questions.md) — things the code doesn't answer; ask a human.
    Prioritised one-pager (shared doc): [Onboarding: open questions, prioritised](https://claude.ai/artifact/4HP4HUsRtsDamkzK3zocxr).
 
 ## Layout
