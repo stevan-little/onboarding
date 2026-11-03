@@ -83,7 +83,8 @@ flowchart TB
 - The API **never computes heavy results itself**. It kicks off a Databricks job, records "in
   progress" in its own Postgres, and later reads the finished results.
 - Those results are read from **Lakebase** — Databricks' managed Postgres. Gold Delta tables are
-  continuously *synced* into it (`odysee-data-warehouse/resources/*_sync.tf`) so the API can do
+  *synced* into it at the end of each pipeline run (`scheduling_policy = "TRIGGERED"`, not
+  continuous; corrected after the deep dive in [03](03-guest-disruptions.md)) (`odysee-data-warehouse/resources/*_sync.tf`) so the API can do
   fast, indexed, row-level lookups instead of firing a Spark query per HTTP request. If you've ever
   maintained a MySQL read replica fed by an ETL out of a warehouse, this is that. **[code]**
 

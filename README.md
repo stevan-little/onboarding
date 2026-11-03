@@ -9,8 +9,10 @@ Not production code. Nothing here is deployed.
    who uses it, the repositories, how a request flows, where data lives.
 2. [docs/02-domain-data-model.md](docs/02-domain-data-model.md) — the entities (schedule, band,
    flight, leg, booking, itinerary, O&D, coupon), how they relate, and how products join them.
-3. [docs/glossary.md](docs/glossary.md) — airline and Databricks vocabulary you will hit immediately.
-4. [docs/open-questions.md](docs/open-questions.md) — things the code doesn't answer; ask a human.
+3. [docs/03-guest-disruptions.md](docs/03-guest-disruptions.md) — one product traced from the
+   React page through the API and SQL to the Databricks job DAG and its algorithms.
+4. [docs/glossary.md](docs/glossary.md) — airline and Databricks vocabulary you will hit immediately.
+5. [docs/open-questions.md](docs/open-questions.md) — things the code doesn't answer; ask a human.
 
 ## Layout
 

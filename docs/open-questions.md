@@ -15,3 +15,6 @@ Things the code doesn't answer. Ask a human; record the answer and who gave it.
 | 9 | Does anything persist legacy flight IDs across reprocessing of a schedule? | Legacy `expand_flights` uses `uuid()`, which changes on every run; the new contract requires stable IDs. | |
 | 10 | Is the `flight` table in schedule-service's Postgres still populated or read by anything? | The ORM model exists in `database/models.py:194`, but nothing in the service uses it. | |
 | 11 | Who owns the design of the draft product contracts (`itinerary_schedule_match`, `schedule_revenue`, `connectivity_core`)? | They're placeholders with no columns; that logic only exists in the warehouse today. | |
+| 12 | Is "N moved" on the Guest Disruptions table meant to count distinct shift *sizes*? "Not found" can only ever be 0 or 1. | The API counts `DISTINCT disruption_reason`, and that text embeds the minutes (`services/disruption.py`, `gold.guest_disruptions_v2.py`). | |
+| 13 | Do disruption alternatives deliberately ignore seat availability? | `disruption_alternatives_v2.py` filters on time, connections, MCT and carrier, but not on free seats. | |
+| 14 | Should the "not found" thresholds be unified? (`9999` in the pipeline and API, `< 1440` in the reason text) | Two repos depend on the same magic numbers. | |
