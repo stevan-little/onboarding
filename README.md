@@ -21,8 +21,10 @@ Not production code. Nothing here is deployed.
    near-miss connection opportunities: the binary-search engine, ranking, impacts and valuation.
 8. [docs/08-data-platform-adapters.md](docs/08-data-platform-adapters.md) — the multi-tenant data
    platform: adapters, the standard layer, contracts and gates, and where the migration really stands.
-9. [docs/glossary.md](docs/glossary.md) — airline and Databricks vocabulary you will hit immediately.
-10. [docs/open-questions.md](docs/open-questions.md) — things the code doesn't answer; ask a human.
+9. [docs/09-attribution.md](docs/09-attribution.md) — Load Review / Impact Dashboard: how "preserved"
+   and "incremental" booked revenue are defined, produced and should be read.
+10. [docs/glossary.md](docs/glossary.md) — airline and Databricks vocabulary you will hit immediately.
+11. [docs/open-questions.md](docs/open-questions.md) — things the code doesn't answer; ask a human.
    Prioritised one-pager (shared doc): [Onboarding: open questions, prioritised](https://claude.ai/artifact/4HP4HUsRtsDamkzK3zocxr).
 
 ## Layout

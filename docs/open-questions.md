@@ -41,3 +41,7 @@ A prioritised one-pager of these, for discussing with a manager, is a shared doc
 | 33 | Who runs the data-platform jobs while every schedule is paused, and how do 24-hour freshness SLAs hold? | `schedules_paused: true` in every environment. | |
 | 34 | Have data-platform staging/prod ever been released? | No tags in this clone. | |
 | 35 | What is BA's source format, and who writes its adapter? | BA is provisioned in infra but has no config or adapter. | |
+| 36 | schedule-service has no customer/organization scoping: every user sees every schedule in the environment. Is "one real customer per environment" a deliberate rule, and what changes before two customers share one? | No org column, filter or auth check anywhere; `XE → jsx` mapping is a default (see 09). | |
+| 37 | Is the daily attribution refresh (`gold_preserved_itineraries_refresh_job`, hard-coded `PAUSED`) run by hand, and how fresh must the Impact Dashboard be? | Cancellations and incremental bookings only update when it runs. | |
+| 38 | Who maintains the curated Before/After CSV that defines attribution pairs, and how are the choices reviewed? | `jobs/reprocess_attribution_pairs_loop.py`; the headline ROI depends on it. | |
+| 39 | Is preserved/incremental revenue presented to customers as an upper bound? | Full booked fares count, with no counterfactual for rebooking or for passengers who'd have booked another flight (see 09). | |
