@@ -55,3 +55,6 @@ A prioritised one-pager of these, for discussing with a manager, is a shared doc
 | 47 | Is the Datadog rollout beyond dev planned (`adr/00018`)? | Agent and integration exist in dev only. | |
 | 48 | Which Slack channel do people actually watch for warehouse job failures, and are slow-run warnings noise? | One destination for all 72 jobs; data platform uses per-tenant channels. | |
 | 49 | Is sending user email, name and org name to Vercel Analytics covered by the privacy policy and customer DPAs? | `apps/web/src/app/actions/analytics/track.ts`. | |
+| 50 | Is using Server Actions for every read deliberate, given Next.js queues them one at a time per client? | `next@16.3.4` bundled docs, `server-actions.md` and `backend-for-frontend.md` (see 13). | |
+| 51 | Uploaded SSIM files go to Vercel Blob with `access: "public"` and are never deleted. Is there a retention rule, and is a third party holding customers' future schedules acceptable? | `apps/web/src/hooks/schedules/use-schedule-upload.ts`; no delete in either repo. | |
+| 52 | Can the frontend's README, `.claude/CLAUDE.md` and AGENTS.md be brought in line with `package.json` (Next 16.3, Clerk 7, Zod 4, Vitest)? | Three docs, three stacks (see 13). | |

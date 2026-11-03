@@ -29,8 +29,10 @@ Not production code. Nothing here is deployed.
     what the API checks on each request; where customer isolation holds and where it stops.
 12. [docs/12-observability.md](docs/12-observability.md) — logs, metrics and alerts per component; the
     Datadog plan versus reality; what nobody is watching.
-13. [docs/glossary.md](docs/glossary.md) — airline and Databricks vocabulary you will hit immediately.
-14. [docs/open-questions.md](docs/open-questions.md) — things the code doesn't answer; ask a human.
+13. [docs/13-frontend-architecture.md](docs/13-frontend-architecture.md) — the monorepo, the web app's
+    anatomy, how a page gets data (Server Actions), uploads via Vercel Blob, and doc drift.
+14. [docs/glossary.md](docs/glossary.md) — airline and Databricks vocabulary you will hit immediately.
+15. [docs/open-questions.md](docs/open-questions.md) — things the code doesn't answer; ask a human.
    Prioritised one-pager (shared doc): [Onboarding: open questions, prioritised](https://claude.ai/artifact/4HP4HUsRtsDamkzK3zocxr).
 
 ## Layout
