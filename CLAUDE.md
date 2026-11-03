@@ -20,3 +20,12 @@ odysee-optimizers, odysee-infra, odysee-ds).
 - Tools go in `tools/`, are read-only against the sibling repos, and must never need credentials
   unless that is their stated purpose.
 - Never put secrets, account credentials or client data in this repo.
+
+## Working in the sibling repos
+
+- Each repo's own AGENTS.md / CLAUDE.md governs work there and overrides anything here.
+- **No AI attribution in commits or PRs** (no `Co-Authored-By` trailer for an assistant, no
+  "Generated with ..." footer) in odysee-frontend, schedule-service, odysee-data-warehouse and
+  odysee-data-platform: their rules forbid it. This onboarding repo is the exception.
+- Never commit in those repos without Stevan's explicit go-ahead.
+- Branch targets and release tags differ per repo: see docs/10-how-code-ships.md.

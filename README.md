@@ -23,8 +23,10 @@ Not production code. Nothing here is deployed.
    platform: adapters, the standard layer, contracts and gates, and where the migration really stands.
 9. [docs/09-attribution.md](docs/09-attribution.md) — Load Review / Impact Dashboard: how "preserved"
    and "incremental" booked revenue are defined, produced and should be read.
-10. [docs/glossary.md](docs/glossary.md) — airline and Databricks vocabulary you will hit immediately.
-11. [docs/open-questions.md](docs/open-questions.md) — things the code doesn't answer; ask a human.
+10. [docs/10-how-code-ships.md](docs/10-how-code-ships.md) — branches, deploys, approvals, local checks
+    and commit/AI rules for every repo, side by side. Read before a first PR.
+11. [docs/glossary.md](docs/glossary.md) — airline and Databricks vocabulary you will hit immediately.
+12. [docs/open-questions.md](docs/open-questions.md) — things the code doesn't answer; ask a human.
    Prioritised one-pager (shared doc): [Onboarding: open questions, prioritised](https://claude.ai/artifact/4HP4HUsRtsDamkzK3zocxr).
 
 ## Layout

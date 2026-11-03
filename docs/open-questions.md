@@ -45,3 +45,4 @@ A prioritised one-pager of these, for discussing with a manager, is a shared doc
 | 37 | Is the daily attribution refresh (`gold_preserved_itineraries_refresh_job`, hard-coded `PAUSED`) run by hand, and how fresh must the Impact Dashboard be? | Cancellations and incremental bookings only update when it runs. | |
 | 38 | Who maintains the curated Before/After CSV that defines attribution pairs, and how are the choices reviewed? | `jobs/reprocess_attribution_pairs_loop.py`; the headline ROI depends on it. | |
 | 39 | Is preserved/incremental revenue presented to customers as an upper bound? | Full booked fares count, with no counterfactual for rebooking or for passengers who'd have booked another flight (see 09). | |
+| 40 | schedule-service's README links to `docs/cicd.md` and `docs/branch-protection.md`, which don't exist. Where did they go? | No `docs/` folder in the repo. | |
