@@ -13,8 +13,10 @@ Not production code. Nothing here is deployed.
    React page through the API and SQL to the Databricks job DAG and its algorithms.
 4. [docs/04-aws-infrastructure.md](docs/04-aws-infrastructure.md) — AWS and Databricks from first
    principles: accounts, IAM roles, VPCs, how one client's data is walled off, how Terraform applies.
-5. [docs/glossary.md](docs/glossary.md) — airline and Databricks vocabulary you will hit immediately.
-6. [docs/open-questions.md](docs/open-questions.md) — things the code doesn't answer; ask a human.
+5. [docs/05-optimizers.md](docs/05-optimizers.md) — the three CP-SAT optimizers: constraint
+   programming from first principles, the study lifecycle, the models, and how to run the tests.
+6. [docs/glossary.md](docs/glossary.md) — airline and Databricks vocabulary you will hit immediately.
+7. [docs/open-questions.md](docs/open-questions.md) — things the code doesn't answer; ask a human.
 
 ## Layout
 

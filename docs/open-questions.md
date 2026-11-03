@@ -22,3 +22,7 @@ Things the code doesn't answer. Ask a human; record the answer and who gave it.
 | 16 | Can schedule-service's `temporary-network` VPC be deleted now that the real dev VPC exists? Its range `10.95.96.0/20` is also demo's. | `schedule-service/infra/stacks/temporary-network/README.md` vs `odysee-infra/stacks/environment/README.md`. | |
 | 17 | Which region will `odysee-ml-prod` use? | `adr/00016` lists us-west-2; `adr/00022` says eu-central-1, pending CTO/legal. | |
 | 18 | How do I get AWS and Databricks access, and who owns the Google Workspace groups? | `adr/00017`. | |
+| 19 | Does any deployed environment set `NEXT_PUBLIC_ENABLE_MOCKS=true`, i.e. show mocked optimizer results? The frontend's optimisation `results`/`rotations`/`decision` mocks look stale now that the backend implements them. | `odysee-frontend/apps/web/src/mocks/config.ts` vs `schedule-service/.../services/optimizer_studies.py`; the Vercel env isn't in the repo. | |
+| 20 | Should odysee-optimizers pin Python (`.python-version` or `<3.13`)? `uv sync` fails on 3.13 because the pinned ortools has no wheel. | Reproduced in this session. | |
+| 21 | When will the revenue models score continuous time, so `core/revenue_smoothing.py` can be removed? | It's labelled a temporary stopgap; the retiming optimizers' recommendations depend on it. | |
+| 22 | When does the optimizer API move from `alaska_sierra_<env>_catalog` to the tenant catalogs? | `schedule-service/settings.py:100`. | |
