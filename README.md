@@ -7,8 +7,10 @@ Not production code. Nothing here is deployed.
 
 1. [docs/01-system-overview.md](docs/01-system-overview.md) — the whole system on one page:
    who uses it, the repositories, how a request flows, where data lives.
-2. [docs/glossary.md](docs/glossary.md) — airline and Databricks vocabulary you will hit immediately.
-3. [docs/open-questions.md](docs/open-questions.md) — things the code doesn't answer; ask a human.
+2. [docs/02-domain-data-model.md](docs/02-domain-data-model.md) — the entities (schedule, band,
+   flight, leg, booking, itinerary, O&D, coupon), how they relate, and how products join them.
+3. [docs/glossary.md](docs/glossary.md) — airline and Databricks vocabulary you will hit immediately.
+4. [docs/open-questions.md](docs/open-questions.md) — things the code doesn't answer; ask a human.
 
 ## Layout
 

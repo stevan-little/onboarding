@@ -11,3 +11,7 @@ Things the code doesn't answer. Ask a human; record the answer and who gave it.
 | 5 | How far along is the warehouse → data-platform migration in practice? | `MIGRATION.md` lists P0–P3 moves; some marked "not yet published or reconciled". | |
 | 6 | Which customers are live vs. demo/prospect? (Alaska, JSX, New Zealand) | Inferred from catalog names and notebook folders only. | |
 | 7 | What's the relationship between `odysee-ds` notebooks and production models? | Notebooks include `promote_model_prod`, but no CI/packaging. | |
+| 8 | Is excluding zero-revenue itineraries from disruption analysis intended? Which passengers does it drop (award tickets, staff travel)? | `gold.disrupted_itineraries_v2.py`: `FILTER_ZERO_REVENUE = True`, but its comment says "off by default". | |
+| 9 | Does anything persist legacy flight IDs across reprocessing of a schedule? | Legacy `expand_flights` uses `uuid()`, which changes on every run; the new contract requires stable IDs. | |
+| 10 | Is the `flight` table in schedule-service's Postgres still populated or read by anything? | The ORM model exists in `database/models.py:194`, but nothing in the service uses it. | |
+| 11 | Who owns the design of the draft product contracts (`itinerary_schedule_match`, `schedule_revenue`, `connectivity_core`)? | They're placeholders with no columns; that logic only exists in the warehouse today. | |
