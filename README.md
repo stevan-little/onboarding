@@ -15,14 +15,17 @@ Not production code. Nothing here is deployed.
    principles: accounts, IAM roles, VPCs, how one client's data is walled off, how Terraform applies.
 5. [docs/05-optimizers.md](docs/05-optimizers.md) — the three CP-SAT optimizers: constraint
    programming from first principles, the study lifecycle, the models, and how to run the tests.
-6. [docs/glossary.md](docs/glossary.md) — airline and Databricks vocabulary you will hit immediately.
-7. [docs/open-questions.md](docs/open-questions.md) — things the code doesn't answer; ask a human.
+6. [docs/06-revenue-models.md](docs/06-revenue-models.md) — the ML revenue model behind every dollar
+   figure: ML basics, what's predicted, the model stack, how it reaches production, how far to trust it.
+7. [docs/glossary.md](docs/glossary.md) — airline and Databricks vocabulary you will hit immediately.
+8. [docs/open-questions.md](docs/open-questions.md) — things the code doesn't answer; ask a human.
 
 ## Layout
 
 ```
 docs/    numbered explainers, built up in layers (overview first, then deep dives)
 tools/   scripts we write to explore the repos (each one documents its own usage)
+         nbcode.py  print notebook source as text, never outputs (they may hold client data)
 ```
 
 ## The repositories being studied

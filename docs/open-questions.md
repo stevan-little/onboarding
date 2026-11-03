@@ -26,3 +26,8 @@ Things the code doesn't answer. Ask a human; record the answer and who gave it.
 | 20 | Should odysee-optimizers pin Python (`.python-version` or `<3.13`)? `uv sync` fails on 3.13 because the pinned ortools has no wheel. | Reproduced in this session. | |
 | 21 | When will the revenue models score continuous time, so `core/revenue_smoothing.py` can be removed? | It's labelled a temporary stopgap; the retiming optimizers' recommendations depend on it. | |
 | 22 | When does the optimizer API move from `alaska_sierra_<env>_catalog` to the tenant catalogs? | `schedule-service/settings.py:100`. | |
+| 23 | What is the production revenue model's test WAPE, on which period, and is there a forward-in-time backtest? | No metrics in git (outputs stripped); validation is later than test, and the correction boosters are fitted on validation (see 06). | |
+| 24 | Who moves the `@champion` alias for `…champion_ml_internal_…_full_network_…` in staging/prod, and how? | The promotion notebooks in `odysee-ds/deployment` name a different model with a hard-coded version. | |
+| 25 | Is there a plan to share feature code between training (odysee-ds) and inference (`gold.schedule_revenue.py`)? | Functions are duplicated with no parity check; the JSX pipeline has `test_feature_parity.py`. | |
+| 26 | Why is `model_drift_monitor` paused in staging and prod? | `resources/environments/*.tfvars`. | |
+| 27 | Should the unused `ml_disrupted_leg_model_name` Terraform variable drive `silver.disrupted_revenue_prediction_leg.py`, which hard-codes the model name? | Declared in every tfvars, passed to no job. | |
