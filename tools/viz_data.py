@@ -17,6 +17,7 @@ Usage:
     python3 tools/viz_data.py --loads --inject viz/network-treemap.html
     python3 tools/viz_data.py --loads --inject viz/flight-profiles.html
     python3 tools/viz_data.py --loads --inject viz/flight-scatter-matrix.html
+    python3 tools/viz_data.py --gantt viz/hub-gantt.data.json
     python3 tools/viz_data.py > data.json                    # or just print the JSON
 """
 from __future__ import annotations
@@ -46,6 +47,10 @@ def main() -> None:
     ap.add_argument("--loads", action="store_true",
                     help="seats sold, connecting passengers and revenue for every flight on every "
                          "day of the month (runs the booking simulation, about 25s)")
+    ap.add_argument("--gantt", metavar="FILE",
+                    help="write the data file behind viz/hub-gantt.html: every flight on every day "
+                         "(seats sold, connecting, revenue, requests refused for lack of seats) and "
+                         "the passengers on every pair of connecting flights (about 25s)")
     ap.add_argument("--inject", help="HTML page whose <script id=data> block gets the JSON")
     args = ap.parse_args()
     sys.path.insert(0, args.warehouse)
@@ -105,6 +110,10 @@ def main() -> None:
         _emit(args, {"meta": {**meta, "focus_day": focus_day.isoformat(), "first": first.isoformat(),
                               "last": last.isoformat(), "bands": len(schedule.legs)},
                      "airports": airports, "legs": legs})
+        return
+
+    if args.gantt:
+        _gantt(args.gantt, Simulation, coupon_cents, network, legs, airports, meta, first, last)
         return
 
     if args.loads:
@@ -197,6 +206,74 @@ def main() -> None:
                   for lid, name in focus_ids.items()},
     }
     _emit(args, payload)
+
+
+def _gantt(out, Simulation, coupon_cents, network, legs, airports, meta, first, last) -> None:
+    """One simulation run, recording what the warehouse tables do not keep: refused requests.
+
+    Simulation._take is repeated here unchanged except for the two marked lines, so the random
+    draws, and therefore every passenger, stay identical to a plain run. If simulate.py changes,
+    re-copy it; the loads this writes must match `--loads` exactly.
+    """
+    n_days = (last - first).days + 1
+
+    class Recording(Simulation):
+        def __init__(self, *a, **k):
+            super().__init__(*a, **k)
+            self.refused: dict[tuple[int, date], int] = {}
+            self.lost: dict[date, int] = {}
+
+        def _take(self, ps, day, party, business):
+            available = [p for p in ps if all(self.network.operates(n, day) for n in p.leg_ids)]
+            if not available:
+                return None
+            weights = [(1.0 if p.nonstop else 0.45) * (1.5 if business else 1.0) for p in available]
+            order = []
+            while available:
+                choice = self.rng.choices(range(len(available)), weights)[0]
+                order.append(available.pop(choice))
+                weights.pop(choice)
+            for path in order:
+                if all(self._seats(n, day) >= party for n in path.leg_ids):
+                    for n in path.leg_ids:
+                        self._seats_left[(n, day)] -= party
+                    return path
+                for n in path.leg_ids:  # added: which flight on this path was short of seats
+                    if self._seats(n, day) < party:
+                        self.refused[(n, day)] = self.refused.get((n, day), 0) + party
+            self.lost[day] = self.lost.get(day, 0) + party  # added: no path had room
+            return None
+
+    sim = Recording(network, meta["seed"], date.fromisoformat(meta["reference_date"]), 1.0)
+    cells = {leg["id"]: {"pax": [0] * n_days, "flow": [0] * n_days, "rev": [0.0] * n_days} for leg in legs}
+    pairs: dict[tuple[int, int], list[int]] = {}
+    for day, _ in sim.run(first, last):
+        i = (day.day - first).days
+        for booking, di, li in day.coupons:
+            direction = booking.directions[di]
+            ids = direction.path.leg_ids
+            cell, party = cells[ids[li]], len(booking.passengers)
+            cell["pax"][i] += party
+            cell["rev"][i] += party * coupon_cents(booking, direction, network.miles(ids[li])) / 100
+            if len(ids) == 2:
+                cell["flow"][i] += party
+                if li == 0:
+                    pairs.setdefault((ids[0], ids[1]), [0] * n_days)[i] += party
+    def refused(leg_id):
+        return [sim.refused.get((leg_id, first + timedelta(days=i)), 0) for i in range(n_days)]
+
+    keep = ("id", "fn", "o", "d", "dep", "arr", "seats", "ac", "rot")
+    dump = lambda v: json.dumps(v, separators=(",", ":"))  # noqa: E731
+    with open(out, "w") as f:
+        f.write('{"meta":' + dump({**meta, "scale": 1.0, "first": first.isoformat(), "last": last.isoformat()}))
+        f.write(',\n"lost":' + dump([sim.lost.get(first + timedelta(days=i), 0) for i in range(n_days)]))
+        f.write(',\n"airports":' + dump(airports))
+        f.write(',\n"legs":[\n' + ",\n".join(
+            dump({**{k: leg[k] for k in keep}, "pax": cells[leg["id"]]["pax"], "flow": cells[leg["id"]]["flow"],
+                  "rev": [round(v) for v in cells[leg["id"]]["rev"]], "ref": refused(leg["id"])})
+            for leg in legs))
+        f.write('\n],\n"pairs":[\n' + ",\n".join(dump([a, b, v]) for (a, b), v in sorted(pairs.items())))
+        f.write("\n]}\n")
 
 
 def _emit(args: argparse.Namespace, payload: dict) -> None:

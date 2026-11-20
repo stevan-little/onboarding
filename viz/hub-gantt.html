@@ -1,0 +1,400 @@
+<title>Fleet Gantt</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+/* Layout: short lede; a control deck that stays in view on wide screens (day strip, what the bars
+   show, row order, and a reading line for the picked flight); the Gantt; then findings and notes. */
+:root {
+  --page: #f9f9f7; --surface: #fcfcfb; --ink: #0b0b0b; --ink-2: #52514e; --muted: #898781;
+  --grid: #e1e0d9; --axis: #c3c2b7; --ring: rgba(11,11,11,.10);
+  --local: #2a78d6; --flow: #eb6834; --over: #d03b3b; --hubgap: rgba(11,11,11,.11);
+  --h1: #cde2fb; --h2: #9ec5f4; --h3: #6da7ec; --h4: #3987e5; --h5: #256abf; --h6: #184f95; --h7: #0d366b;
+  --d0: #e6e5df; --dp1: #9ec5f4; --dp2: #3987e5; --dp3: #184f95; --dn1: #f3b3b0; --dn2: #e34948; --dn3: #9f2020;
+  --sans: system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --page: #0d0d0d; --surface: #1a1a19; --ink: #f0efec; --ink-2: #c3c2b7; --muted: #898781;
+    --grid: #2c2c2a; --axis: #383835; --ring: rgba(255,255,255,.10);
+    --local: #3987e5; --flow: #d95926; --over: #e66767; --hubgap: rgba(255,255,255,.13);
+    --h1: #0d366b; --h2: #184f95; --h3: #256abf; --h4: #3987e5; --h5: #6da7ec; --h6: #9ec5f4; --h7: #cde2fb;
+    --d0: #383835; --dp1: #184f95; --dp2: #3987e5; --dp3: #9ec5f4; --dn1: #7a1f1f; --dn2: #e34948; --dn3: #f3b3b0; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --page: #0d0d0d; --surface: #1a1a19; --ink: #f0efec; --ink-2: #c3c2b7; --muted: #898781;
+  --grid: #2c2c2a; --axis: #383835; --ring: rgba(255,255,255,.10);
+  --local: #3987e5; --flow: #d95926; --over: #e66767; --hubgap: rgba(255,255,255,.13);
+  --h1: #0d366b; --h2: #184f95; --h3: #256abf; --h4: #3987e5; --h5: #6da7ec; --h6: #9ec5f4; --h7: #cde2fb;
+    --d0: #383835; --dp1: #184f95; --dp2: #3987e5; --dp3: #9ec5f4; --dn1: #7a1f1f; --dn2: #e34948; --dn3: #f3b3b0; color-scheme: dark;
+}
+body { background: var(--page); color: var(--ink); font-family: var(--sans); font-size: 15px; line-height: 1.55;
+  padding-block: 36px 72px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+main { max-width: 1180px; margin: 0 auto; display: flex; flex-direction: column; gap: 18px; }
+header { display: flex; flex-direction: column; gap: 10px; }
+h1 { font-size: 30px; line-height: 1.15; margin: 0; letter-spacing: -.01em; }
+h2 { font-size: 15px; line-height: 1.3; margin: 0; font-weight: 600; }
+p { margin: 0; max-width: 72ch; color: var(--ink-2); }
+p strong, .note b, .reading b, li b { color: var(--ink); font-weight: 600; }
+code, .mono { font-family: var(--mono); font-size: .92em; }
+.eyebrow { font-family: var(--mono); font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.deck { background: var(--surface); border: 1px solid var(--ring); border-radius: 8px; padding: 10px 14px; display: flex; flex-direction: column; gap: 8px; }
+@media (min-width: 900px) { .deck { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; box-shadow: 0 6px 14px -10px rgba(0,0,0,.35); } }
+.row { display: flex; flex-wrap: wrap; gap: 8px 18px; align-items: center; }
+.row > span.l { font-size: 12px; color: var(--muted); }
+.seg { display: inline-flex; border: 1px solid var(--axis); border-radius: 6px; overflow: hidden; }
+.seg button { font: 600 12.5px var(--sans); padding: 5px 11px; border: 0; border-radius: 0; background: transparent; color: var(--ink-2); cursor: pointer; }
+.seg button + button { border-left: 1px solid var(--axis); }
+.seg button[aria-pressed="true"] { background: var(--ink); color: var(--surface); }
+button.plain { font: 12.5px var(--sans); color: var(--ink); background: var(--surface); border: 1px solid var(--axis); border-radius: 6px; padding: 4px 10px; cursor: pointer; }
+button.plain[aria-pressed="true"] { background: var(--ink); color: var(--surface); }
+button:focus-visible { outline: 2px solid var(--local); outline-offset: 1px; }
+#days { display: block; width: 100%; max-width: 640px; height: auto; flex: 1 1 420px; min-width: 0; }
+#days .d { cursor: pointer; }
+.reading { font-size: 13px; color: var(--ink-2); display: flex; gap: 14px; align-items: flex-start; min-height: 4.7em; }
+.reading > div { flex: 1 1 auto; min-width: 0; }
+.reading svg { flex: 0 0 236px; width: 236px; height: 54px; }
+@media (max-width: 700px) { .reading { flex-direction: column; } }
+figure { margin: 0; background: var(--surface); border: 1px solid var(--ring); border-radius: 8px; padding: 12px; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.legend { display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 12px; color: var(--ink-2); align-items: center; }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.sw { width: 12px; height: 9px; border-radius: 2px; display: inline-block; }
+.scroll { overflow-x: auto; }
+.scroll > svg { min-width: 980px; }
+svg { display: block; width: 100%; height: auto; }
+svg text { font-family: var(--sans); fill: var(--muted); font-size: 10.5px; }
+svg text.code { font-family: var(--mono); font-size: 9px; }
+svg text.strong { fill: var(--ink); font-weight: 600; }
+svg text.ink2 { fill: var(--ink-2); }
+svg text.halo { paint-order: stroke; stroke: var(--surface); stroke-width: 3px; stroke-linejoin: round; }
+.hit { cursor: pointer; }
+.cards { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; }
+@media (max-width: 800px) { .cards { grid-template-columns: minmax(0, 1fr); } }
+.card { background: var(--surface); border: 1px solid var(--ring); border-radius: 8px; padding: 16px; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.card ul { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 6px; font-size: 13.5px; color: var(--ink-2); }
+.note { font-size: 13px; color: var(--ink-2); border-left: 2px solid var(--axis); padding-left: 12px; max-width: 76ch; }
+#tip { position: fixed; z-index: 20; pointer-events: none; background: var(--surface); color: var(--ink); border: 1px solid var(--ring); box-shadow: 0 4px 16px rgba(0,0,0,.18); border-radius: 6px; padding: 7px 10px; font-size: 12px; line-height: 1.45; max-width: 300px; }
+#tip .k { color: var(--muted); }
+footer { font-size: 12px; color: var(--muted); max-width: 76ch; }
+</style>
+
+<main>
+<header>
+  <div class="eyebrow">Onboarding · synthetic data · sketch 14</div>
+  <h1>Fleet Gantt</h1>
+  <p>The chart every schedule planner already reads: one row per aircraft, time across, a bar for each flight. The layout is left alone. What changes is that each bar now carries <strong>what happened on that flight</strong>, the gaps between bars carry <strong>where the aircraft was waiting</strong>, and the strips above each hub add the rows up, so the plan and its results sit in one picture. Synthetic airline, February 2027.</p>
+</header>
+
+<div class="deck">
+  <div class="row">
+    <svg id="days" role="group" aria-label="Pick a day"></svg>
+    <button type="button" class="plain" id="avg">Month average</button>
+  </div>
+  <div class="row">
+    <span class="l">bars show</span>
+    <div class="seg" id="mode" role="group" aria-label="Bars show"><button type="button" data-v="plain">Schedule only</button><button type="button" data-v="gauge">Seats sold</button><button type="button" data-v="rev">Revenue per seat</button><button type="button" data-v="diff">Against its own average</button></div>
+    <span class="l">rows ordered by</span>
+    <div class="seg" id="sort" role="group" aria-label="Row order"><button type="button" data-v="sched">First departure</button><button type="button" data-v="pattern">Same airports together</button><button type="button" data-v="rev">Revenue</button></div>
+  </div>
+  <div class="reading" id="reading"></div>
+</div>
+
+<figure>
+  <div class="legend" id="legend"></div>
+  <div class="scroll"><svg id="gantt" role="img" aria-label="Gantt chart of every aircraft's day with loads, connections and hub activity"></svg></div>
+</figure>
+
+<div class="cards">
+  <div class="card">
+    <h2>What the bars, gaps and strips add</h2>
+    <ul>
+      <li><b>A bar is a container.</b> Its outline is the seats on the aircraft, so the 64-seat regional jets draw shorter. It fills from the bottom with seats sold: blue for passengers only flying that flight, orange for passengers connecting.</li>
+      <li><b>A red cap is demand that did not fit.</b> It counts requests for a seat that found the flight full. A full bar with no cap was just enough aircraft; a full bar with a tall cap was too little.</li>
+      <li><b>A shaded gap is an aircraft waiting at its hub.</b> Where shaded gaps line up down the page, many aircraft are at the hub together. That is a bank, and the first strip above each hub is those gaps counted.</li>
+      <li><b>The second strip is people.</b> It counts passengers who have got off one flight at the hub and not yet left on the next. A conventional chart shows aircraft meeting; this shows whether anyone used the meeting.</li>
+      <li><b>Click a flight to see its connections.</b> Orange ribbons run to the flights its passengers went on to, or came from, as thick as the number of people. Thin grey lines are connections nobody used that day. Red dashes are near misses.</li>
+    </ul>
+  </div>
+  <div class="card">
+    <h2>What February looks like through it</h2>
+    <ul id="findings"></ul>
+  </div>
+</div>
+
+<p class="note"><b>Patterns worth hunting.</b> Order the rows by "same airports together" and most aircraft turn out to have a twin flying the mirror image of their day, and nearly every aircraft flies the same short loop two or more times (the ×2 beside its name, with a small hook under the row where each loop restarts). Step through the days (the arrow keys work) and the fills breathe with the week while the caps stay on the same few rows. "Against its own average" strips the usual level away and leaves only what is unusual about the day you picked. Compare the two halves of any row: the same route flown morning and afternoon rarely fills the same way. In the strips, compare the aircraft count with the passenger count under it. Where the passengers stay high while the aircraft thin out, people are waiting longer for the next flight, which is what Pittsburgh's afternoon looks like.</p>
+<p class="note"><b>Limits.</b> A "refused request" is a booking that tried a flight and found too few seats left; the same traveller can be refused by several flights before finding one, so caps overstate lost passengers (the count of trips that found no seat on any flight is in the findings). The simulator hands seats out in the order it invents passengers, not in booking order, so <i>which</i> market gets refused is arbitrary, though how many is not. Connections follow the simulator's rules (35 minutes minimum, 60 if any airport is outside the US, at most 4 hours, same day, not back to the origin, route at most 1.5 times direct). Revenue is fare money booked to the flight with connecting fares split by miles. I have not used Sabre's planning tools; "the familiar chart" here means the standard aircraft-rotation Gantt, and the comparison is with that general form.</p>
+
+<footer>Data: <code>odysee-data-warehouse/src/utilities/synthetic_airline</code> run at full scale for 1–28 February 2027 by <code>onboarding/tools/viz_data.py --gantt</code>, which also records refused seat requests and passengers per connecting pair of flights. Clock times are US Eastern. No client data.</footer>
+</main>
+<div id="tip" hidden></div>
+
+<script>
+(() => {
+const NS = 'http://www.w3.org/2000/svg';
+const $ = id => document.getElementById(id);
+const S = (tag, attrs, parent, text) => { const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); if (text != null) e.textContent = text; if (parent) parent.appendChild(e); return e; };
+const clear = el => { while (el.firstChild) el.removeChild(el.firstChild); };
+const clock = t => { const r = ((Math.round(t) % 1440) + 1440) % 1440; return String(Math.floor(r / 60)).padStart(2, '0') + ':' + String(r % 60).padStart(2, '0'); };
+const num = v => Math.round(v).toLocaleString('en-US');
+const one = v => (Math.round(v * 10) / 10).toLocaleString('en-US');
+const pct = v => Math.round(v * 100) + '%';
+const usd = v => '$' + (v >= 1e4 ? num(v / 1e3) + 'k' : num(v));
+const sum = a => a.reduce((x, y) => x + y, 0);
+const tip = $('tip');
+const showTip = (ev, html) => { tip.innerHTML = html; tip.hidden = false; const r = tip.getBoundingClientRect(); let x = ev.clientX + 14, y = ev.clientY + 16; if (x + r.width > innerWidth - 8) x = ev.clientX - r.width - 14; if (y + r.height > innerHeight - 8) y = ev.clientY - r.height - 14; tip.style.left = Math.max(8, x) + 'px'; tip.style.top = Math.max(8, y) + 'px'; };
+$('reading').textContent = 'Loading the month…';
+fetch('hub-gantt.data.json').then(r => r.json()).then(init).catch(e => { $('reading').textContent = 'The data file did not load: ' + e.message; });
+
+function init(D) {
+const HUBS = ['PIT', 'GSO'], HUB_NAME = { PIT: 'Pittsburgh', GSO: 'Greensboro' }, rad = Math.PI / 180, DOW = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const miles = (a, b) => { const A = D.airports[a], B = D.airports[b]; const h = Math.sin((B.lat - A.lat) * rad / 2) ** 2 + Math.cos(A.lat * rad) * Math.cos(B.lat * rad) * Math.sin((B.lon - A.lon) * rad / 2) ** 2; return 3958.8 * 2 * Math.asin(Math.sqrt(h)); };
+const L = D.legs, byId = Object.fromEntries(L.map(l => [l.id, l])), ND = L[0].pax.length;
+const first = new Date(D.meta.first + 'T00:00:00Z'), dates = Array.from({ length: ND }, (_, i) => new Date(+first + i * 864e5));
+const dayName = i => i < 0 ? 'an average February day' : `${DOW[dates[i].getUTCDay()]} ${dates[i].getUTCDate()} Feb`;
+
+/* ---------- state ---------- */
+let day = 11, mode = 'gauge', sort = 'sched', sel = null;
+const v = arr => day < 0 ? sum(arr) / ND : arr[day];
+
+/* ---------- aircraft (one row each) ---------- */
+const rots = {}; L.forEach(l => (rots[l.rot] = rots[l.rot] || []).push(l));
+let AC = Object.values(rots).map(legs => {
+  legs.sort((a, b) => a.dep - b.dep);
+  const visits = {}; legs.forEach(l => HUBS.forEach(h => { if (l.d === h || l.o === h) visits[h] = (visits[h] || 0) + 1; }));
+  const hub = HUBS.slice().sort((a, b) => (visits[b] || 0) - (visits[a] || 0))[0];
+  const spokes = [...new Set(legs.flatMap(l => [l.o, l.d]).filter(c => c !== hub))];
+  let rep = 1; for (let k = 1; k <= legs.length / 2; k++) if (legs.length % k === 0 && legs.every((l, i) => i + k >= legs.length || (l.o === legs[i + k].o && l.d === legs[i + k].d))) { rep = legs.length / k; break; }
+  return { legs, hub, spokes, rep, key: spokes.slice().sort().join('·'), label: spokes.slice(0, 3).join('·') + (spokes.length > 3 ? '…' : ''), air: sum(legs.map(l => l.arr - l.dep)) };
+});
+AC.sort((a, b) => HUBS.indexOf(a.hub) - HUBS.indexOf(b.hub) || a.legs[0].dep - b.legs[0].dep);
+AC.forEach((a, i) => { a.n = i + 1; a.legs.forEach(l => { l.ac_ = a; }); });
+const acVal = (a, k) => sum(a.legs.map(l => v(l[k])));
+
+/* ---------- connections ---------- */
+const pairs = D.pairs.map(([a, b, vals]) => ({ a: byId[a], b: byId[b], vals }));
+const pairKey = {}; pairs.forEach(p => { pairKey[p.a.id + '>' + p.b.id] = p; });
+function links(x) {                                        // every flight x could hand passengers to, or take them from
+  const out = [];
+  const consider = (a, b) => {
+    if (b.d === a.o) return; const hub = a.d, gap = b.dep - a.arr; if (gap < 0 || gap > 240) return;
+    if (miles(a.o, hub) + miles(hub, b.d) > 1.5 * miles(a.o, b.d)) return;
+    const mct = (D.airports[a.o].intl || D.airports[hub].intl || D.airports[b.d].intl) ? 60 : 35, p = pairKey[a.id + '>' + b.id];
+    out.push({ a, b, gap, miss: gap < mct, short: mct - gap, pax: p ? v(p.vals) : 0, other: a === x ? b : a, onward: a === x });
+  };
+  L.forEach(y => { if (y === x) return; if (y.o === x.d) consider(x, y); if (y.d === x.o) consider(y, x); });
+  return out;
+}
+
+/* ---------- geometry ---------- */
+const W = 1120, ML = 122, MR = 156, PW = W - ML - MR, T0 = 300, T1 = 1575, STEP = 5, NG = (T1 - T0) / STEP;
+const tx = t => ML + (Math.min(Math.max(t, T0), T1) - T0) / (T1 - T0) * PW;
+const RH = 25, BH = 14, PXS = BH / 114, SH = 26;            // row pitch, tallest bar, px per seat, strip height
+const svg = $('gantt');
+const REV = { cuts: [60, 75, 90, 105, 120, 140], labels: ['under $60', '$60–75', '$75–90', '$90–105', '$105–120', '$120–140', '$140+'] };
+const bin = x => { let b = 0; while (b < REV.cuts.length && x >= REV.cuts[b]) b++; return b + 1; };
+
+/* ---------- column sums (the strips) ---------- */
+const grid = () => new Float64Array(NG);
+const fill = (g, t0, t1, w) => { const a = Math.max(0, Math.round((t0 - T0) / STEP)), b = Math.min(NG, Math.round((t1 - T0) / STEP)); for (let k = a; k < b; k++) g[k] += w; };
+const ground = {}; HUBS.forEach(h => { const g = ground[h] = grid(); AC.forEach(a => { a.legs.forEach((l, i) => { const nx = a.legs[i + 1]; if (nx && l.d === h && nx.o === h) fill(g, l.arr, nx.dep, 1); }); if (a.legs[0].o === h) fill(g, T0, a.legs[0].dep, 1); const z = a.legs[a.legs.length - 1]; if (z.d === h) fill(g, z.arr, T1, 1); }); });
+function sums() {
+  const airL = grid(), airF = grid(), wait = {}; HUBS.forEach(h => { wait[h] = grid(); });
+  L.forEach(l => { const p = v(l.pax), f = v(l.flow); fill(airL, l.dep, l.arr, p - f); fill(airF, l.dep, l.arr, f); });
+  pairs.forEach(p => { if (wait[p.a.d]) fill(wait[p.a.d], p.a.arr, p.b.dep, v(p.vals)); });
+  return { airL, airF, wait };
+}
+const peak = g => { let m = 0, k = 0; g.forEach((x, i) => { if (x > m) { m = x; k = i; } }); return [m, T0 + k * STEP]; };
+
+/* ---------- drawing ---------- */
+let strips = [], rowY = {}, plotTop = 0, plotBot = 0, cursorG = null;
+function stepArea(g, y, h, max, attrs, parent, base) {
+  const yy = (x, k) => y + h - (x + (base ? base[k] : 0)) / max * h; let d = `M${tx(T0)},${yy(g[0], 0).toFixed(1)}`;
+  for (let k = 0; k < NG; k++) d += `L${tx(T0 + k * STEP).toFixed(1)},${yy(g[k], k).toFixed(1)}L${tx(T0 + (k + 1) * STEP).toFixed(1)},${yy(g[k], k).toFixed(1)}`;
+  if (base) { for (let k = NG - 1; k >= 0; k--) d += `L${tx(T0 + (k + 1) * STEP).toFixed(1)},${(y + h - base[k] / max * h).toFixed(1)}L${tx(T0 + k * STEP).toFixed(1)},${(y + h - base[k] / max * h).toFixed(1)}`; }
+  else d += `L${tx(T1)},${y + h}L${tx(T0)},${y + h}`;
+  return S('path', { d: d + 'Z', ...attrs }, parent);
+}
+function strip(name, y, g, max, attrs, fmt, base) {
+  S('line', { x1: ML, x2: W - MR, y1: y + SH, y2: y + SH, stroke: 'var(--axis)' }, svg);
+  if (base) stepArea(base, y, SH, max, { fill: 'var(--local)', opacity: .8 }, svg);
+  stepArea(g, y, SH, max, attrs, svg, base);
+  S('text', { x: ML - 8, y: y + SH - 9, 'text-anchor': 'end', class: 'ink2' }, svg, name[0]); S('text', { x: ML - 8, y: y + SH + 2, 'text-anchor': 'end' }, svg, name[1]);
+  const tot = base ? g.map((x, k) => x + base[k]) : g, [m, at] = peak(tot);
+  S('text', { x: W - MR + 8, y: y + 9, class: 'ink2' }, svg, `peak ${fmt(m)}`); S('text', { x: W - MR + 8, y: y + 21 }, svg, `at ${clock(at)}`);
+  strips.push({ y, g: tot, max, fmt });
+}
+function bar(l, y, g, hot) {
+  const early = l.dep < T0, x = tx(l.dep) + (early ? 9 : 0), w = Math.max(2, tx(l.arr) - x), h = l.seats * PXS, yb = y + 22, pax = v(l.pax), fl = v(l.flow), ref = v(l.ref);
+  if (mode === 'plain') { S('rect', { x, y: yb - h, width: w, height: h, rx: 2, fill: l.ac === 'E75' ? 'var(--muted)' : 'var(--ink-2)' }, g); if (w > 24) S('text', { x: x + w / 2, y: yb - h / 2 + 3, 'text-anchor': 'middle', class: 'code', fill: 'var(--surface)', style: 'fill:var(--surface)' }, g, l.fn); }
+  else if (mode === 'rev') S('rect', { x, y: yb - h, width: w, height: h, rx: 2, fill: `var(--h${bin(v(l.rev) / l.seats)})` }, g);
+  else if (mode === 'diff') { const d = day < 0 ? 0 : (l.pax[day] - sum(l.pax) / ND) / l.seats, k = Math.abs(d) < .05 ? 0 : Math.abs(d) < .15 ? 1 : Math.abs(d) < .3 ? 2 : 3; S('rect', { x: x + .5, y: yb - h + .5, width: w - 1, height: h - 1, rx: 2, fill: k ? `var(--d${d > 0 ? 'p' : 'n'}${k})` : 'var(--surface)', stroke: k ? 'none' : 'var(--axis)' }, g); }
+  else {
+    S('rect', { x: x + .5, y: yb - h + .5, width: w - 1, height: h - 1, rx: 2, fill: 'var(--surface)', stroke: 'var(--axis)' }, g);
+    const hl = (pax - fl) * PXS, hf = fl * PXS;
+    S('rect', { x: x + .5, y: yb - hl, width: w - 1, height: Math.max(0, hl - .5), fill: 'var(--local)' }, g);
+    S('rect', { x: x + .5, y: yb - hl - hf, width: w - 1, height: hf, fill: 'var(--flow)' }, g);
+    if (ref >= .5) S('rect', { x: x + 1.5, y: yb - h - 1.5 - Math.min(7, ref * PXS), width: w - 3, height: Math.min(7, ref * PXS), rx: 1, fill: 'var(--over)' }, g);
+  }
+  if (early) S('path', { d: `M${x - 7},${yb - h / 2}l5,-3.5v7z`, fill: 'var(--muted)' }, g);
+  if (hot) S('rect', { x: x - 1.5, y: yb - h - 1.5, width: w + 3, height: h + 3, rx: 3, fill: 'none', stroke: 'var(--ink)', 'stroke-width': 2 }, g);
+}
+function draw() {
+  clear(svg); strips = []; rowY = {};
+  const sm = sums(), order = h => { const rows = AC.filter(a => a.hub === h); if (sort === 'rev') rows.sort((a, b) => acVal(b, 'rev') - acVal(a, 'rev')); else if (sort === 'pattern') rows.sort((a, b) => a.key.localeCompare(b.key) || a.legs[0].dep - b.legs[0].dep); return rows; };
+  const groups = HUBS.map(h => ({ h, rows: order(h) }));
+  const H = 26 + SH + 16 + groups.reduce((s, g) => s + 30 + 2 * (SH + 12) + g.rows.length * RH + 14, 0) + 22;
+  svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+  const gGrid = S('g', {}, svg), ticks = yy => { for (let t = 360; t <= T1; t += 60) S('text', { x: tx(t), y: yy, 'text-anchor': 'middle', class: 'code' }, svg, clock(t).slice(0, 2) + (t % 120 ? '' : ':00')); };
+  ticks(11);
+  let y = 22;
+  const airMax = Math.max(...sm.airL.map((x, k) => x + sm.airF[k])) * 1.08;
+  strip(['passengers', 'in the air'], y, sm.airF, airMax, { fill: 'var(--flow)', opacity: .85 }, num, sm.airL); y += SH + 16;
+  plotTop = 18;
+  const maxPax = Math.max(...AC.map(a => acVal(a, 'pax'))), maxRev = Math.max(...AC.map(a => acVal(a, 'rev'))), gRows = S('g', {}, svg);
+  groups.forEach(({ h, rows }) => {
+    S('text', { x: 0, y: y + 14, class: 'strong', 'font-size': 13 }, svg, `${HUB_NAME[h]} hub`); S('text', { x: 0, y: y + 27 }, svg, `${rows.length} aircraft`);
+    y += 30;
+    strip(['aircraft on', `ground at ${h}`], y, ground[h], Math.max(...ground[h]) * 1.08, { fill: 'var(--ink-2)', opacity: .55 }, num); y += SH + 12;
+    strip(['passengers', 'between flights'], y, sm.wait[h], Math.max(...sm.wait[h]) * 1.08, { fill: 'var(--flow)', opacity: .85 }, num); y += SH + 12;
+    S('text', { x: W - MR + 8, y: y - 1 }, svg, 'in air'); S('text', { x: W - MR + 44, y: y - 1 }, svg, 'passengers'); S('text', { x: W - 2, y: y - 1, 'text-anchor': 'end' }, svg, 'revenue');
+    if (sort === 'pattern') rows.forEach((a, i) => { if (i && rows[i - 1].key === a.key) S('path', { d: `M5,${y + (i - 1) * RH + 15}h-4v${RH}h4`, fill: 'none', stroke: 'var(--ink-2)', 'stroke-width': 1.2 }, svg); });
+    rows.forEach(a => {
+      a.legs.forEach(l => { rowY[l.id] = y; });
+      S('line', { x1: ML, x2: W - MR, y1: y + 22.5, y2: y + 22.5, stroke: 'var(--grid)' }, gRows);
+      const t = S('text', { x: ML - 8, y: y + 19, 'text-anchor': 'end', class: 'code' }, svg);
+      S('tspan', { fill: 'var(--muted)' }, t, String(a.n).padStart(2, '0') + ' '); S('tspan', { class: 'strong', style: 'fill:var(--ink)' }, t, a.label); if (a.rep > 1) S('tspan', { dx: 3 }, t, '×' + a.rep);
+      a.legs.forEach((l, i) => {
+        const nx = a.legs[i + 1], x0 = tx(l.arr), x1 = nx ? tx(nx.dep) : x0, isHub = HUBS.includes(l.d);
+        if (nx && nx.o === l.d) { if (isHub) S('rect', { x: x0 + 1, y: y + 8, width: Math.max(0, x1 - x0 - 2), height: BH, fill: 'var(--hubgap)' }, gRows); if (x1 - x0 > 17 && l.d !== a.hub) S('text', { x: (x0 + x1) / 2, y: y + 18.5, 'text-anchor': 'middle', class: 'code' + (isHub ? ' strong' : '') }, gRows, l.d); }
+        if (i === 0 && l.dep >= T0) S('text', { x: tx(l.dep) - 4, y: y + 18.5, 'text-anchor': 'end', class: 'code' }, gRows, l.o);
+        if (!nx) S('text', { x: x0 + 4, y: y + 18.5, class: 'code' }, gRows, l.d);
+        bar(l, y, gRows, false);
+        if (a.rep > 1 && i % (a.legs.length / a.rep) === 0) S('path', { d: `M${tx(l.dep)},${y + 23}v3.5h4`, fill: 'none', stroke: 'var(--ink-2)', 'stroke-width': 1.2 }, gRows);
+      });
+      const px = acVal(a, 'pax'), fl = acVal(a, 'flow'), rv = acVal(a, 'rev'), mx = W - MR + 8;
+      S('text', { x: mx, y: y + 19, class: 'code' }, svg, one(a.air / 60) + 'h');
+      S('rect', { x: mx + 36, y: y + 11, width: (px - fl) / maxPax * 50, height: 9, fill: 'var(--local)' }, svg); S('rect', { x: mx + 36 + (px - fl) / maxPax * 50 + 1, y: y + 11, width: fl / maxPax * 50, height: 9, fill: 'var(--flow)' }, svg);
+      S('rect', { x: W - 34 - rv / maxRev * 22, y: y + 11, width: rv / maxRev * 22, height: 9, fill: 'var(--ink-2)', opacity: .6 }, svg);
+      S('text', { x: W - 2, y: y + 19, 'text-anchor': 'end', class: 'code ink2' }, svg, usd(rv));
+      const mh = S('rect', { x: W - MR, y, width: MR, height: RH, fill: 'transparent' }, svg);
+      mh.addEventListener('mousemove', ev => showTip(ev, `<b>Aircraft ${String(a.n).padStart(2, '0')}</b> <span class="k">${a.legs[0].ac}</span><br>${[a.legs[0].o, ...a.legs.map(l => l.d)].join(' → ')}<br>${a.legs.length} flights, ${one(a.air / 60)} h in the air<br>${num(px)} passengers (${pct(fl / Math.max(1, px))} connecting)<br>$${num(rv)} booked · $${num(rv / (a.air / 60))} per hour flown`));
+      mh.addEventListener('mouseleave', () => { tip.hidden = true; });
+      y += RH;
+    });
+    y += 14;
+  });
+  plotBot = y - 8; ticks(y + 6);
+  for (let t = 360; t <= T1; t += 60) S('line', { x1: tx(t), x2: tx(t), y1: plotTop, y2: plotBot, stroke: 'var(--grid)', 'stroke-width': t % 120 ? .5 : 1 }, gGrid);
+
+  /* selection: veil, window, ribbons, partners */
+  const top = S('g', {}, svg);
+  if (sel) {
+    const x = byId[sel], ls = links(x), yx = rowY[x.id];
+    S('rect', { x: ML, y: plotTop, width: PW, height: plotBot - plotTop, fill: 'var(--surface)', opacity: .72 }, top);
+    if (HUBS.includes(x.d)) { S('rect', { x: tx(x.arr), y: plotTop, width: tx(x.arr + 35) - tx(x.arr), height: plotBot - plotTop, fill: 'var(--over)', opacity: .1 }, top); S('rect', { x: tx(x.arr + 35), y: plotTop, width: tx(x.arr + 240) - tx(x.arr + 35), height: plotBot - plotTop, fill: 'var(--flow)', opacity: .07 }, top); }
+    if (HUBS.includes(x.o)) { S('rect', { x: tx(x.dep - 35), y: plotTop, width: tx(x.dep) - tx(x.dep - 35), height: plotBot - plotTop, fill: 'var(--over)', opacity: .1 }, top); S('rect', { x: tx(x.dep - 240), y: plotTop, width: tx(x.dep - 35) - tx(x.dep - 240), height: plotBot - plotTop, fill: 'var(--local)', opacity: .07 }, top); }
+    const curve = k => { const xa = tx(k.a.arr), ya = rowY[k.a.id] + 15, xb = tx(k.b.dep), yb = rowY[k.b.id] + 15, dx = Math.max(14, (xb - xa) / 2); return `M${xa},${ya}C${xa + dx},${ya} ${xb - dx},${yb} ${xb},${yb}`; };
+    ls.sort((p, q) => p.pax - q.pax).forEach(k => {
+      if (k.miss) S('path', { d: curve(k), fill: 'none', stroke: 'var(--over)', 'stroke-width': 1.2, 'stroke-dasharray': '3 3', opacity: .9 }, top);
+      else if (k.pax < .05) S('path', { d: curve(k), fill: 'none', stroke: 'var(--muted)', 'stroke-width': .8, opacity: .7 }, top);
+      else S('path', { d: curve(k), fill: 'none', stroke: 'var(--flow)', 'stroke-width': .8 + Math.sqrt(k.pax) * 1.05, 'stroke-linecap': 'round', opacity: .8 }, top);
+    });
+    ls.forEach(k => { bar(k.other, rowY[k.other.id], top, false); if (k.pax >= .5) S('text', { x: k.onward ? tx(k.other.dep) + 3 : tx(k.other.arr) - 3, y: rowY[k.other.id] + 6.5, 'text-anchor': k.onward ? 'start' : 'end', class: 'strong halo', 'font-size': 10 }, top, num(k.pax)); });
+    bar(x, yx, top, true);
+  }
+  /* pointer layer */
+  cursorG = S('g', { 'pointer-events': 'none', visibility: 'hidden' }, svg);
+  const cl = S('line', { y1: plotTop, y2: plotBot, stroke: 'var(--ink-2)', 'stroke-width': 1, 'stroke-dasharray': '2 3' }, cursorG), ct = S('text', { y: plotTop - 9, 'text-anchor': 'middle', class: 'code strong halo' }, cursorG);
+  const cv = strips.map(s => S('text', { class: 'strong halo', 'font-size': 10 }, cursorG));
+  const bg = S('rect', { x: ML, y: plotTop, width: PW, height: plotBot - plotTop, fill: 'transparent' }, svg);
+  const at = ev => { const r = svg.getBoundingClientRect(); return T0 + ((ev.clientX - r.left) / r.width * W - ML) / PW * (T1 - T0); };
+  const move = ev => { const t = Math.min(T1 - 1, Math.max(T0, at(ev))), k = Math.floor((t - T0) / STEP), xx = tx(t); cursorG.setAttribute('visibility', 'visible'); cl.setAttribute('x1', xx); cl.setAttribute('x2', xx); ct.setAttribute('x', xx); ct.textContent = clock(t); strips.forEach((s, i) => { cv[i].setAttribute('x', xx + 4); cv[i].setAttribute('y', s.y + 10); cv[i].textContent = s.fmt(s.g[k]); }); };
+  bg.addEventListener('mousemove', move); bg.addEventListener('mouseleave', () => cursorG.setAttribute('visibility', 'hidden'));
+  bg.addEventListener('click', () => { if (sel) { sel = null; sync(); } });
+  L.forEach(l => {
+    const yy = rowY[l.id], x = tx(l.dep), hit = S('rect', { x, y: yy + 1, width: Math.max(4, tx(l.arr) - x), height: RH - 3, fill: 'transparent', class: 'hit' }, svg);
+    hit.addEventListener('mousemove', ev => { move(ev); const p = v(l.pax), f = v(l.flow), r = v(l.ref); showTip(ev, `<b class="mono">OC ${l.fn} ${l.o} → ${l.d}</b> <span class="k">${clock(l.dep)}–${clock(l.arr)}</span><br>${one(p)} of ${l.seats} seats sold (${pct(p / l.seats)})<br>${one(p - f)} local · ${one(f)} connecting${r >= .5 ? `<br><b>${one(r)}</b> more requests found it full` : ''}<br>$${num(v(l.rev))} booked · $${num(v(l.rev) / l.seats)} a seat<br><span class="k">${dayName(day)} · click for connections</span>`); });
+    hit.addEventListener('mouseleave', () => { tip.hidden = true; cursorG.setAttribute('visibility', 'hidden'); });
+    hit.addEventListener('click', () => { sel = sel === l.id ? null : l.id; tip.hidden = true; sync(); });
+  });
+  legend(); reading();
+}
+
+/* ---------- deck: day strip, legend, reading ---------- */
+const dayLF = dates.map((_, i) => sum(L.map(l => l.pax[i])) / sum(L.map(l => l.seats)));
+function drawDays() {
+  const el = $('days'); clear(el); const cw = 22, hh = 30; el.setAttribute('viewBox', `0 0 ${ND * cw + 2} ${hh + 26}`);
+  const mxLost = Math.max(...D.lost);
+  dates.forEach((d, i) => {
+    const x = 1 + i * cw, on = i === day, wk = d.getUTCDay() === 0 || d.getUTCDay() === 6, g = S('g', { class: 'd' }, el);
+    S('rect', { x, y: 0, width: cw - 2, height: hh + 26, rx: 3, fill: on ? 'var(--grid)' : 'transparent' }, g);
+    S('rect', { x: x + 4, y: 9 + (hh - 9) * (1 - dayLF[i]), width: cw - 10, height: (hh - 9) * dayLF[i], fill: on ? 'var(--ink)' : 'var(--ink-2)', opacity: on ? 1 : .55 }, g);
+    S('rect', { x: x + 4, y: 9 + (hh - 9) * (1 - dayLF[i]) - 1.5 - D.lost[i] / mxLost * 6, width: cw - 10, height: D.lost[i] / mxLost * 6, fill: 'var(--over)' }, g);
+    S('text', { x: x + cw / 2 - 1, y: hh + 10, 'text-anchor': 'middle', class: on || wk ? 'strong' : '', 'font-size': 9 }, g, DOW[d.getUTCDay()][0]);
+    S('text', { x: x + cw / 2 - 1, y: hh + 21, 'text-anchor': 'middle', class: on ? 'strong' : '', 'font-size': 9 }, g, d.getUTCDate());
+    g.addEventListener('click', () => { day = i; sync(); });
+    g.addEventListener('mousemove', ev => showTip(ev, `<b>${dayName(i)}</b><br>${pct(dayLF[i])} of seats sold<br>${num(D.lost[i])} one-way trips could not be seated at all`));
+    g.addEventListener('mouseleave', () => { tip.hidden = true; });
+  });
+}
+function legend() {
+  const base = `<span><i class="sw" style="background:var(--hubgap);outline:1px solid var(--axis)"></i>waiting at its hub</span>`;
+  $('legend').innerHTML = (mode === 'gauge' ? `<span><i class="sw" style="background:var(--surface);outline:1px solid var(--axis)"></i>seats on the aircraft</span><span><i class="sw" style="background:var(--local)"></i>sold, local</span><span><i class="sw" style="background:var(--flow)"></i>sold, connecting</span><span><i class="sw" style="background:var(--over);height:5px"></i>requests that found it full</span>`
+    : mode === 'diff' ? `<span>seats sold that day against the flight's own February average:</span>` + [['dn3', '30+ points emptier'], ['dn2', '15–30'], ['dn1', '5–15'], ['surface);outline:1px solid var(--axis', 'within 5 points'], ['dp1', '5–15'], ['dp2', '15–30'], ['dp3', '30+ points fuller']].map(([c, t]) => `<span><i class="sw" style="background:var(--${c})"></i>${t}</span>`).join('')
+    : mode === 'rev' ? `<span>revenue per seat</span>` + REV.labels.map((l, k) => `<span><i class="sw" style="background:var(--h${k + 1})"></i>${l}</span>`).join('')
+    : `<span><i class="sw" style="background:var(--ink-2)"></i>114-seat 737-700</span><span><i class="sw" style="background:var(--muted);height:5px"></i>64-seat E175</span>`) + base
+    + (sel ? `<span><svg width="22" height="8" style="width:22px"><line x1="0" y1="4" x2="22" y2="4" stroke="var(--flow)" stroke-width="4"/></svg>passengers connecting</span><span><svg width="22" height="8" style="width:22px"><line x1="0" y1="4" x2="22" y2="4" stroke="var(--over)" stroke-width="1.4" stroke-dasharray="3 3"/></svg>near miss</span>` : '');
+}
+function spark(l) {
+  const w = 236, h = 54, cw = w / ND; let s = `<svg viewBox="0 0 ${w} ${h}" role="img" aria-label="Seats sold on each day of the month">`;
+  l.pax.forEach((p, i) => { const full = p >= l.seats, bh = p / l.seats * 36; s += `<rect x="${(i * cw + 1).toFixed(1)}" y="${(40 - bh).toFixed(1)}" width="${(cw - 2).toFixed(1)}" height="${bh.toFixed(1)}" fill="${full ? 'var(--ink)' : 'var(--ink-2)'}" opacity="${i === day ? 1 : full ? .8 : .45}"/>`; if (l.ref[i]) s += `<rect x="${(i * cw + 1).toFixed(1)}" y="${(40 - bh - 1.5 - Math.min(4, l.ref[i] / l.seats * 8)).toFixed(1)}" width="${(cw - 2).toFixed(1)}" height="${Math.min(4, l.ref[i] / l.seats * 8).toFixed(1)}" fill="var(--over)"/>`; if (i === day) s += `<rect x="${(i * cw).toFixed(1)}" y="42" width="${cw.toFixed(1)}" height="2" fill="var(--ink)"/>`; });
+  return s + `<text x="0" y="53" style="font:9px var(--sans);fill:var(--muted)">this flight, 1 to 28 Feb: seats sold, refusals in red</text></svg>`;
+}
+function reading() {
+  const el = $('reading');
+  if (!sel) {
+    const p = sum(L.map(l => v(l.pax))), s = sum(L.map(l => l.seats)), full = L.filter(l => v(l.pax) >= l.seats - .01).length, ref = sum(L.map(l => v(l.ref))), lost = v(D.lost);
+    el.innerHTML = `<div><b>${dayName(day)[0].toUpperCase() + dayName(day).slice(1)}.</b> ${AC.length} aircraft flew ${L.length} flights; <b>${pct(p / s)}</b> of seats were sold and <b>$${num(sum(L.map(l => v(l.rev))))}</b> was booked. ${day < 0 ? '' : `<b>${full}</b> flights were full. `}<b>${num(ref)}</b> seat requests found a flight full, and <b>${num(lost)}</b> one-way trips could not be seated on any flight.<br>Move across the chart to read the strips at any time. Click a flight to trace its passengers.</div>`;
+    return;
+  }
+  const x = byId[sel], ls = links(x), used = ls.filter(k => k.pax >= .5).sort((a, b) => b.pax - a.pax), miss = ls.filter(k => k.miss), idle = ls.filter(k => !k.miss && k.pax < .5), p = v(x.pax), f = v(x.flow), r = v(x.ref), so = x.pax.filter(q => q >= x.seats).length;
+  const side = on => { const u = used.filter(k => k.onward === on); return u.length ? `${num(sum(u.map(k => k.pax)))} ${on ? 'went on to' : 'came off'} ${u.length} flight${u.length > 1 ? 's' : ''} (most: ${u.slice(0, 3).map(k => `${on ? k.other.d : k.other.o} ${num(k.pax)}`).join(', ')})` : ''; };
+  el.innerHTML = `<div><b class="mono">OC ${x.fn} ${x.o} → ${x.d}</b> ${clock(x.dep)}–${clock(x.arr)}, aircraft ${String(x.ac_.n).padStart(2, '0')}, ${x.seats} seats. <b>${dayName(day)[0].toUpperCase() + dayName(day).slice(1)}:</b> ${one(p)} sold (${one(p - f)} local, ${one(f)} connecting)${r >= .5 ? `, and <b>${one(r)}</b> more requests found it full` : ''}; $${num(v(x.rev))} booked. Over the month it averaged ${pct(sum(x.pax) / (x.seats * ND))} full and sold out on ${so} of ${ND} days.<br>${[side(false), side(true)].filter(Boolean).join('; ') || 'Nobody connected to or from it.'}${idle.length ? `. ${idle.length} legal connection${idle.length > 1 ? 's' : ''} went unused` : ''}${miss.length ? `; ${miss.length} near miss${miss.length > 1 ? 'es' : ''} (closest ${Math.min(...miss.map(k => k.short))} min short)` : ''}.</div>${spark(x)}`;
+}
+function sync() {
+  [...$('mode').children].forEach(b => b.setAttribute('aria-pressed', b.dataset.v === mode));
+  [...$('sort').children].forEach(b => b.setAttribute('aria-pressed', b.dataset.v === sort));
+  $('avg').setAttribute('aria-pressed', day < 0);
+  drawDays(); draw();
+}
+[...$('mode').children].forEach(b => b.addEventListener('click', () => { mode = b.dataset.v; if (mode === 'diff' && day < 0) day = 11; sync(); }));
+[...$('sort').children].forEach(b => b.addEventListener('click', () => { sort = b.dataset.v; sync(); }));
+$('avg').addEventListener('click', () => { day = day < 0 ? 11 : -1; sync(); });
+let lastDay = 11;
+addEventListener('keydown', ev => { if (ev.key === 'Escape' && sel) { sel = null; sync(); return; } if (ev.target.closest && ev.target.closest('input, select, textarea')) return; if (ev.key === 'ArrowRight' && day < ND - 1) { day = Math.max(0, day + 1); sync(); } else if (ev.key === 'ArrowLeft' && day > 0) { day--; sync(); } });
+
+/* ---------- findings for the month ---------- */
+(() => {
+  const save = day; day = -1;
+  const per = AC.map(a => ({ a, rev: acVal(a, 'rev'), air: a.air / 60 })).sort((p, q) => p.rev - q.rev), lo = per[0], hi = per[per.length - 1], med = per[Math.floor(per.length / 2)];
+  const refT = sum(L.map(l => sum(l.ref))), trips = sum(L.map(l => sum(l.pax) - sum(l.flow) / 2)), lostT = sum(D.lost), capped = sum(L.map(l => l.ref.filter(r => r > 0).length));
+  const byRoute = {}; L.forEach(l => { const k = l.o + ' → ' + l.d; byRoute[k] = (byRoute[k] || 0) + sum(l.ref); }); const topR = Object.entries(byRoute).sort((a, b) => b[1] - a[1])[0];
+  const sm = sums(), out = [];
+  out.push(`<b>An aircraft's day is worth between $${num(lo.rev / 1e3)}k and $${num(hi.rev / 1e3)}k.</b> The lowest is aircraft ${String(lo.a.n).padStart(2, '0')} (${lo.a.label}), the highest aircraft ${String(hi.a.n).padStart(2, '0')} (${hi.a.label}); the middle one earns $${num(med.rev / 1e3)}k. Order the rows by revenue to see it.`);
+  out.push(`<b>${num(refT)} seat requests found a flight full</b>, on ${num(capped)} of ${num(L.length * ND)} dated flights. ${num(lostT)} one-way trips could not be seated on any flight, against ${num(trips)} that were (${one(lostT / trips * 100)}%). The worst route is ${topR[0]} (${num(topR[1])} refusals).`);
+  HUBS.forEach(h => {
+    const [g, gt] = peak(ground[h]), [w, wt] = peak(sm.wait[h]), at = (grid, t) => grid[Math.round((t - T0) / STEP)];
+    const waitOf = f => { let n = 0, m = 0; pairs.forEach(p => { if (p.a.d === h && f(p.a.arr)) { const x = sum(p.vals); n += x; m += x * (p.b.dep - p.a.arr); } }); return m / Math.max(1, n); };
+    out.push(`<b>${HUB_NAME[h]}: ${g} aircraft on the ground at ${clock(gt)}, with ${num(at(sm.wait[h], gt))} passengers between flights.</b> The most passengers between flights is ${num(w)} at ${clock(wt)}, when ${at(ground[h], wt)} aircraft are on the ground. Passengers who arrive before 10:00 wait ${num(waitOf(t => t < 600))} minutes for their next flight on average; those who arrive after noon wait ${num(waitOf(t => t >= 720))}.`);
+  });
+  const hubMin = sum(AC.map(a => sum(a.legs.map((l, i) => { const nx = a.legs[i + 1]; return nx && HUBS.includes(l.d) && nx.o === l.d ? nx.dep - l.arr : 0; })))), airMin = sum(AC.map(a => a.air));
+  out.push(`<b>For every hour in the air the fleet spends ${Math.round(hubMin / airMin * 60)} minutes waiting at a hub</b> between flights. That waiting is what the banks cost.`);
+  const twins = {}; AC.forEach(a => { (twins[a.hub + a.key] = twins[a.hub + a.key] || []).push(a); });
+  out.push(`<b>${Object.values(twins).filter(t => t.length > 1).reduce((s, t) => s + t.length, 0)} of ${AC.length} aircraft have a twin</b> serving the same airports, and ${AC.filter(a => a.rep > 1).length} repeat one loop at least twice a day.`);
+  $('findings').innerHTML = out.map(t => `<li>${t}</li>`).join('');
+  day = save;
+})();
+sync();
+}
+})();
+</script>
