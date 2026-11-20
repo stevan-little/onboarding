@@ -43,7 +43,8 @@ tools/   scripts we write to explore the repos (each one documents its own usage
          nbcode.py  print notebook source as text, never outputs (they may hold client data)
          viz_data.py  run the warehouse repo's synthetic-airline simulator and build the data behind viz/
 viz/     data visualizations of the synthetic "Odysee Air" airline (no client data)
-         data-shapes.html  sketches 1-3: aircraft rotations, one leg's journeys, the booking curve
+         data-shapes.html  sketches 1-4: aircraft rotations, one leg's journeys, the booking curve,
+                           rotations as waves summed into hub banks
 ```
 
 ## The repositories being studied
