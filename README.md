@@ -53,6 +53,8 @@ viz/     data visualizations of the synthetic "Odysee Air" airline (no client da
                            three prorate rules
          load-calendar.html  sketch 9: heatmap of every flight on every day (seats sold, connecting
                            share, revenue per seat)
+         hub-compass.html  sketch 10: chord diagram of who changes planes at each hub, airports in
+                           compass order
 ```
 
 ## The repositories being studied

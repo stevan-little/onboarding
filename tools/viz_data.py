@@ -12,6 +12,7 @@ Usage:
     python3 tools/viz_data.py --plan-only --inject viz/hub-retimer.html
     python3 tools/viz_data.py --journeys --inject viz/journey-flows.html
     python3 tools/viz_data.py --journeys --inject viz/fare-split.html
+    python3 tools/viz_data.py --journeys --inject viz/hub-compass.html
     python3 tools/viz_data.py --loads --inject viz/load-calendar.html
     python3 tools/viz_data.py > data.json                    # or just print the JSON
 """
