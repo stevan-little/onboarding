@@ -10,6 +10,7 @@ Usage:
     python3 tools/viz_data.py --plan-only --inject viz/hub-waves.html
     python3 tools/viz_data.py --plan-only --inject viz/hub-clock.html
     python3 tools/viz_data.py --plan-only --inject viz/hub-retimer.html
+    python3 tools/viz_data.py --journeys --inject viz/journey-flows.html
     python3 tools/viz_data.py > data.json                    # or just print the JSON
 """
 from __future__ import annotations
@@ -33,6 +34,9 @@ def main() -> None:
     ap.add_argument("--day", default="2027-02-12")
     ap.add_argument("--plan-only", action="store_true",
                     help="schedule and airports only; skips the booking simulation (about 1s)")
+    ap.add_argument("--journeys", action="store_true",
+                    help="every origin-destination-via combination with its passengers and fares "
+                         "for the whole month (runs the booking simulation, about 25s)")
     ap.add_argument("--inject", help="HTML page whose <script id=data> block gets the JSON")
     args = ap.parse_args()
     sys.path.insert(0, args.warehouse)
@@ -84,7 +88,7 @@ def main() -> None:
     used = sorted({x for leg in legs for x in (leg["o"], leg["d"])})
     airports = {
         c: {"city": AIRPORTS[c].city, "lat": AIRPORTS[c].latitude, "lon": AIRPORTS[c].longitude,
-            "intl": int(AIRPORTS[c].country != "USA")}
+            "intl": int(AIRPORTS[c].country != "USA"), "region": AIRPORTS[c].region}
         for c in used
     }
 
@@ -92,6 +96,24 @@ def main() -> None:
         _emit(args, {"meta": {**meta, "focus_day": focus_day.isoformat(), "first": first.isoformat(),
                               "last": last.isoformat(), "bands": len(schedule.legs)},
                      "airports": airports, "legs": legs})
+        return
+
+    if args.journeys:
+        sim = Simulation(network, meta["seed"], date.fromisoformat(meta["reference_date"]), 1.0)
+        flows: dict[tuple[str, str, str], list[float]] = {}
+        for day, _ in sim.run(first, last):
+            for booking, di, li in day.coupons:
+                if li:  # count each direction of travel once, on its first leg
+                    continue
+                direction = booking.directions[di]
+                path = direction.path
+                via = "" if path.nonstop else network.legs[path.leg_ids[0]].destination
+                cell = flows.setdefault((path.origin, path.destination, via), [0, 0.0])
+                cell[0] += len(booking.passengers)
+                cell[1] += 0.0 if booking.award else direction.fare * len(booking.passengers)
+        _emit(args, {"meta": {**meta, "scale": 1.0, "first": first.isoformat(), "last": last.isoformat()},
+                     "airports": airports,
+                     "journeys": [[o, d, via, n, round(rev)] for (o, d, via), (n, rev) in sorted(flows.items())]})
         return
 
     # --- 2 & 3. reality: simulate the month, keep the coupons on the focus legs
