@@ -8,6 +8,7 @@ Everything it emits comes from the warehouse repo's own simulator
 Usage:
     python3 tools/viz_data.py --inject viz/data-shapes.html   # refresh the page's data
     python3 tools/viz_data.py --plan-only --inject viz/hub-waves.html
+    python3 tools/viz_data.py --plan-only --inject viz/hub-clock.html
     python3 tools/viz_data.py > data.json                    # or just print the JSON
 """
 from __future__ import annotations
