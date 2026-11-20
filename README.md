@@ -63,7 +63,6 @@ viz/     data visualizations of the synthetic "Odysee Air" airline (no client da
                            histograms, correlations and linked box selection
          hub-gantt.html    sketch 14: the aircraft-rotation Gantt, with loads, refused demand, hub
                            strips, a day picker and passenger-weighted connections
-         hub-gantt.data.json  its data (fetched by the page; rebuilt with viz_data.py --gantt)
 ```
 
 ## The repositories being studied

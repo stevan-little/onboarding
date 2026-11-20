@@ -17,12 +17,13 @@ Usage:
     python3 tools/viz_data.py --loads --inject viz/network-treemap.html
     python3 tools/viz_data.py --loads --inject viz/flight-profiles.html
     python3 tools/viz_data.py --loads --inject viz/flight-scatter-matrix.html
-    python3 tools/viz_data.py --gantt viz/hub-gantt.data.json
+    python3 tools/viz_data.py --gantt viz/hub-gantt.html
     python3 tools/viz_data.py > data.json                    # or just print the JSON
 """
 from __future__ import annotations
 
 import argparse
+import io
 import json
 import math
 import sys
@@ -47,8 +48,8 @@ def main() -> None:
     ap.add_argument("--loads", action="store_true",
                     help="seats sold, connecting passengers and revenue for every flight on every "
                          "day of the month (runs the booking simulation, about 25s)")
-    ap.add_argument("--gantt", metavar="FILE",
-                    help="write the data file behind viz/hub-gantt.html: every flight on every day "
+    ap.add_argument("--gantt", metavar="PAGE",
+                    help="rebuild the data inside viz/hub-gantt.html: every flight on every day "
                          "(seats sold, connecting, revenue, requests refused for lack of seats) and "
                          "the passengers on every pair of connecting flights (about 25s)")
     ap.add_argument("--inject", help="HTML page whose <script id=data> block gets the JSON")
@@ -264,7 +265,7 @@ def _gantt(out, Simulation, coupon_cents, network, legs, airports, meta, first, 
 
     keep = ("id", "fn", "o", "d", "dep", "arr", "seats", "ac", "rot")
     dump = lambda v: json.dumps(v, separators=(",", ":"))  # noqa: E731
-    with open(out, "w") as f:
+    with io.StringIO() as f:
         f.write('{"meta":' + dump({**meta, "scale": 1.0, "first": first.isoformat(), "last": last.isoformat()}))
         f.write(',\n"lost":' + dump([sim.lost.get(first + timedelta(days=i), 0) for i in range(n_days)]))
         f.write(',\n"airports":' + dump(airports))
@@ -274,6 +275,13 @@ def _gantt(out, Simulation, coupon_cents, network, legs, airports, meta, first, 
             for leg in legs))
         f.write('\n],\n"pairs":[\n' + ",\n".join(dump([a, b, v]) for (a, b), v in sorted(pairs.items())))
         f.write("\n]}\n")
+        text = f.getvalue()
+    # Inline, not a file beside the page: the published page could not fetch a sibling data file.
+    page = Path(out)
+    html = page.read_text()
+    start, end = '<script id="data" type="application/json">', "</script>"
+    a = html.index(start) + len(start)
+    page.write_text(html[:a] + text + html[html.index(end, a):])
 
 
 def _emit(args: argparse.Namespace, payload: dict) -> None:
