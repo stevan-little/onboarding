@@ -11,6 +11,7 @@ Usage:
     python3 tools/viz_data.py --plan-only --inject viz/hub-clock.html
     python3 tools/viz_data.py --plan-only --inject viz/hub-retimer.html
     python3 tools/viz_data.py --journeys --inject viz/journey-flows.html
+    python3 tools/viz_data.py --journeys --inject viz/fare-split.html
     python3 tools/viz_data.py > data.json                    # or just print the JSON
 """
 from __future__ import annotations

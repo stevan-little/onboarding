@@ -49,6 +49,8 @@ viz/     data visualizations of the synthetic "Odysee Air" airline (no client da
          hub-clock.html    sketch 5: one hub's day on a 24-hour dial, with every connection and near miss
          hub-retimer.html  sketch 6: the clock with a dial per flight; ranks near-miss fixes by what they net
          journey-flows.html  sketch 7: Sankey of a month of journeys: start, nonstop or connecting, end
+         fare-split.html   sketch 8: Sankey of market fares being cut up and booked to routes, under
+                           three prorate rules
 ```
 
 ## The repositories being studied
