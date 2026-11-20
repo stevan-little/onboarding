@@ -47,6 +47,7 @@ viz/     data visualizations of the synthetic "Odysee Air" airline (no client da
          hub-waves.html    sketch 4: rotations as waves, with dials to shift the fleet or one aircraft
                            and count the connections made and broken
          hub-clock.html    sketch 5: one hub's day on a 24-hour dial, with every connection and near miss
+         hub-retimer.html  sketch 6: the clock with a dial per flight; ranks near-miss fixes by what they net
 ```
 
 ## The repositories being studied

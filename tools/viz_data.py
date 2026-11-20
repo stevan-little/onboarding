@@ -9,6 +9,7 @@ Usage:
     python3 tools/viz_data.py --inject viz/data-shapes.html   # refresh the page's data
     python3 tools/viz_data.py --plan-only --inject viz/hub-waves.html
     python3 tools/viz_data.py --plan-only --inject viz/hub-clock.html
+    python3 tools/viz_data.py --plan-only --inject viz/hub-retimer.html
     python3 tools/viz_data.py > data.json                    # or just print the JSON
 """
 from __future__ import annotations
@@ -56,14 +57,21 @@ def main() -> None:
     # --- 1. the plan: every leg on the focus day, and which aircraft rotation it belongs to
     dated = network.legs_on(focus_day)
     by_number = {d.leg.flight_number: d for d in dated}
+    # One id per aircraft-day: follow SSIM's onward-flight pointers, and start a new line when the
+    # onward flight leaves before this one lands (it belongs to the next day, so another aircraft
+    # is flying it today). The fixture has one two-day cycle like that, via an overnight DEN trip.
     rotation: dict[str, int] = {}
+    rid = 0
     for number in by_number:
         if number in rotation:
             continue
-        rid, cur = len(set(rotation.values())), number
+        cur, prev = number, None
         while cur and cur in by_number and cur not in rotation:
+            if prev is not None and by_number[cur].departure_utc < by_number[prev].arrival_utc:
+                rid += 1
             rotation[cur] = rid
-            cur = by_number[cur].leg.next_flight_number
+            prev, cur = cur, by_number[cur].leg.next_flight_number
+        rid += 1
     legs = [
         {
             "id": d.leg_id, "fn": d.leg.flight_number, "o": d.leg.origin, "d": d.leg.destination,
