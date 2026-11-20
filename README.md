@@ -55,6 +55,10 @@ viz/     data visualizations of the synthetic "Odysee Air" airline (no client da
                            share, revenue per seat)
          hub-compass.html  sketch 10: chord diagram of who changes planes at each hub, airports in
                            compass order
+         network-treemap.html  sketch 11: treemap of hub, region, airport, flight; area and colour
+                           switchable between seats, passengers, revenue and their ratios
+         flight-profiles.html  sketch 12: parallel coordinates of seven measures per flight, with
+                           brushing and a correlation table
 ```
 
 ## The repositories being studied

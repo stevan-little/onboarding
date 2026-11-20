@@ -14,6 +14,8 @@ Usage:
     python3 tools/viz_data.py --journeys --inject viz/fare-split.html
     python3 tools/viz_data.py --journeys --inject viz/hub-compass.html
     python3 tools/viz_data.py --loads --inject viz/load-calendar.html
+    python3 tools/viz_data.py --loads --inject viz/network-treemap.html
+    python3 tools/viz_data.py --loads --inject viz/flight-profiles.html
     python3 tools/viz_data.py > data.json                    # or just print the JSON
 """
 from __future__ import annotations
