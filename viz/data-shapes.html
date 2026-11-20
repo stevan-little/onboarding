@@ -82,9 +82,9 @@ footer { font-size: 12px; color: var(--muted); max-width: 72ch; }
 
 <main>
 <header>
-  <div class="eyebrow">Onboarding · synthetic data · sketches 1–4</div>
-  <h1>Odysee Air, drawn four ways</h1>
-  <p>Four throwaway pictures of the synthetic airline that ships in <code>odysee-data-warehouse</code>. Each one takes a single relationship from the data model and draws it. Every pattern here was put there by the simulator, so read these for the shape of the data, not for facts about a real airline.</p>
+  <div class="eyebrow">Onboarding · synthetic data · sketches 1–3</div>
+  <h1>Odysee Air, drawn three ways</h1>
+  <p>Three throwaway pictures of the synthetic airline that ships in <code>odysee-data-warehouse</code>. Each one takes a single relationship from the data model and draws it. Every pattern here was put there by the simulator, so read these for the shape of the data, not for facts about a real airline.</p>
   <div class="ladder" id="ladder"></div>
   <p class="sub">The same month of February 2027 counted at five grains. Each step to the right is a one-to-many expansion.</p>
 </header>
@@ -142,20 +142,7 @@ footer { font-size: 12px; color: var(--muted); max-width: 72ch; }
   <p class="note"><b>What to notice.</b> Leisure travellers book early and cheap, business travellers book late and pay more, and the black staircase is the pricing rule that makes that true. Real airlines call the upper picture a <b>booking curve</b>, and comparing a flight's curve with its history is how they judge whether it is selling ahead or behind. <b>Simulator assumptions:</b> the staircase is hard-coded (five price steps at 60, 21, 14 and 7 days), the booking-time distributions are fixed formulas, and nobody cancels after booking. Seats are also handed out in the order the simulator invents passengers, not in the order they booked, so a sold-out flight does not turn away late bookers the way a real one would.</p>
 </section>
 
-<section>
-  <div class="eyebrow">Sketch 4 · the plan, as waves</div>
-  <h2>Each aircraft is a wave, and a hub is what you get when the waves line up</h2>
-  <p>The zigzags from sketch 1, redrawn. Each row is one aircraft and its height is <strong>how far it is from its hub</strong>. Out to a spoke is a crest, back at the hub is a trough. The schedule repeats daily, so two days are drawn. Underneath, the waves are <strong>added together</strong>.</p>
-  <div class="seg" id="phase-toggle" role="group" aria-label="Phase alignment">
-    <button type="button" data-mode="0" aria-pressed="true">As scheduled</button>
-    <button type="button" data-mode="1" aria-pressed="false">Slide each aircraft by a random amount</button>
-  </div>
-  <figure>
-    <div class="readout" id="wave-readout"></div>
-    <div class="scroll"><svg id="waves" role="img" aria-label="One wave per aircraft, and their sum, for each hub"></svg></div>
-  </figure>
-  <p class="note"><b>What to notice.</b> When the troughs line up, the sum drops and the count of aircraft on the ground at the hub spikes. That moment is a <b>bank</b>: many aircraft at the hub at once, so passengers can step between them. GSO does this cleanly four times a day. PIT does it hard first thing in the morning and then smears into a steadier flow. Press the second button and the same aircraft fly the same legs, just out of step. The sum goes flat and the short connections go with it. <b>The cost of lining up:</b> short flights have to wait on the ground for long ones, which is the flat part at the bottom of each wave. <b>Limits:</b> the connection counts use timing only (35 to 240 minutes between an arrival and a departure on a different aircraft to a different city). The random slide ignores night-time, so it is a thought experiment and not a schedule anyone could fly.</p>
-</section>
+<p class="note"><b>Sketch 4</b>, the rotations redrawn as waves with dials to pull them out of step, has moved to its own page: <a href="https://claude.ai/artifact/TBrhXLyYDXeUrk1k6kDB4Y" style="color:inherit">Hub Waves</a>.</p>
 
 <footer>Data: <code>odysee-data-warehouse/src/utilities/synthetic_airline</code> run at full scale over the fixture schedule <code>OC_FEB27_SSIM_73G_E75_v2.ssim</code>. Rebuilt by <code>onboarding/tools/viz_data.py</code>. Clock times are US Eastern. No client data.</footer>
 </main>
@@ -401,94 +388,5 @@ function renderCurve() {
 }
 renderLeg();
 
-/* ---------- sketch 4: rotations as waves ---------- */
-(() => {
-  const rad = Math.PI / 180;
-  const miles = (a, b) => { const A = D.airports[a], B = D.airports[b]; const h = Math.sin((B.lat - A.lat) * rad / 2) ** 2 + Math.cos(A.lat * rad) * Math.cos(B.lat * rad) * Math.sin((B.lon - A.lon) * rad / 2) ** 2; return 3958.8 * 2 * Math.asin(Math.sqrt(h)); };
-  const STEP = 5, DAY = 1440, X0 = 240, X1 = X0 + 2 * DAY, N = (X1 - X0) / STEP + 1;
-  const WL = 96, WR = 84, wx = t => WL + (t - X0) / (X1 - X0) * (W - WL - WR);
-  // one periodic distance-from-hub function per aircraft
-  const craft = Object.entries(rots).map(([id, legs]) => {
-    const visits = {}; legs.forEach(l => HUBS.forEach(h => { if (l.d === h) visits[h] = (visits[h] || 0) + 1; }));
-    const hub = HUBS.slice().sort((a, b) => (visits[b] || 0) - (visits[a] || 0))[0];
-    const pts = []; legs.forEach(l => { pts.push([l.dep, miles(l.o, hub)], [l.arr, miles(l.d, hub)]); });
-    pts.push([pts[0][0] + DAY, pts[0][1]]);
-    const t0 = pts[0][0];
-    const at = u => { let v = ((u - t0) % DAY + DAY) % DAY + t0, i = 1; while (pts[i][0] < v) i++; const [ta, da] = pts[i - 1], [tb, db] = pts[i]; return tb === ta ? db : da + (db - da) * (v - ta) / (tb - ta); };
-    const spokes = [...new Set(legs.flatMap(l => [l.o, l.d]).filter(c => c !== hub))];
-    return { id: +id, hub, legs, at, max: Math.max(...pts.map(p => p[1])), label: spokes.slice(0, 3).join('·') + (spokes.length > 3 ? '…' : '') };
-  });
-  const groups = HUBS.map(h => ({ hub: h, list: craft.filter(c => c.hub === h).sort((a, b) => b.max - a.max) }));
-  const conns = (hub, off) => {
-    const arr = [], dep = []; craft.forEach(c => c.legs.forEach(l => { if (l.d === hub) arr.push([l.arr + off[c.id], c.id, l.o]); if (l.o === hub) dep.push([l.dep + off[c.id], c.id, l.d]); }));
-    const waits = []; arr.forEach(a => dep.forEach(d => { const g = ((d[0] - a[0]) % DAY + DAY) % DAY; if (g >= 35 && g <= 240 && d[1] !== a[1] && d[2] !== a[2]) waits.push(g); }));
-    waits.sort((x, y) => x - y);
-    return { n: waits.length, short: waits.filter(g => g <= 90).length, med: waits[Math.floor(waits.length / 2)] };
-  };
-  const zero = Object.fromEntries(craft.map(c => [c.id, 0]));
-  const base = Object.fromEntries(HUBS.map(h => [h, conns(h, zero)]));
-  let seed = 7; const rnd = () => { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; };
-  let target = zero, shown = zero, mode = 0;
-
-  const svg = $('waves'), RH = 13, MI = 0.05, SUMH = 64, CNTH = 44, GAP = 30;
-  function draw(off) {
-    clear(svg);
-    let y = 18;
-    const layout = groups.map(g => { const head = Math.max(34, g.list[0].max * MI - 4); const o = { g, top: y, rows: y + head, sum: y + head + g.list.length * RH + 18 }; o.cnt = o.sum + SUMH + 20; y = o.cnt + CNTH + GAP + 16; return o; });
-    const Ht = y - GAP + 8;
-    svg.setAttribute('viewBox', `0 0 ${W} ${Ht}`);
-    for (let t = X0; t <= X1; t += 240) {
-      const mid = t % DAY === 0;
-      S('line', { x1: wx(t), x2: wx(t), y1: 14, y2: Ht - 18, stroke: mid ? 'var(--axis)' : 'var(--grid)', 'stroke-width': 1 }, svg);
-      S('text', { x: wx(t), y: Ht - 4, 'text-anchor': 'middle', class: 'code' }, svg, clock(t % DAY).slice(0, 5));
-      if (t === DAY) S('text', { x: wx(t) + 5, y: 12, class: 'ink2' }, svg, 'next day (same schedule)');
-    }
-    layout.forEach(({ g, top, rows, sum, cnt }) => {
-      S('text', { x: 0, y: top + 4, class: 'strong', 'font-size': 13 }, svg, `${g.hub} · ${g.list.length} aircraft`);
-      const tot = new Float64Array(N), ground = new Float64Array(N);
-      g.list.forEach((c, i) => {
-        const yb = rows + (i + 1) * RH; let d = '';
-        for (let k = 0; k < N; k++) { const v = c.at(X0 + k * STEP - off[c.id]); tot[k] += v; if (v < .5) ground[k]++; d += (k ? 'L' : 'M') + wx(X0 + k * STEP).toFixed(1) + ',' + (yb - v * MI).toFixed(1); }
-        S('path', { d: d + `L${wx(X1)},${yb} L${wx(X0)},${yb}Z`, fill: 'var(--surface)', opacity: .8 }, svg);
-        S('path', { d, fill: 'none', stroke: 'var(--ink)', 'stroke-width': 1.1, 'stroke-linejoin': 'round', opacity: .85 }, svg);
-        S('text', { x: WL - 8, y: yb, 'text-anchor': 'end', class: 'code', 'font-size': 8.5 }, svg, c.label);
-      });
-      // the sum, shown as the fleet's average distance from the hub
-      const n = g.list.length, sb = sum + SUMH; if (!g.mx) g.mx = Math.max(...tot) / n * 1.08; const mx = g.mx;
-      let d = ''; for (let k = 0; k < N; k++) d += (k ? 'L' : 'M') + wx(X0 + k * STEP).toFixed(1) + ',' + (sb - Math.min(1, tot[k] / n / mx) * SUMH).toFixed(1);
-      S('line', { x1: WL, x2: W - WR, y1: sb, y2: sb, stroke: 'var(--axis)', 'stroke-width': 1 }, svg);
-      S('path', { d: d + `L${wx(X1)},${sb} L${wx(X0)},${sb}Z`, fill: 'var(--ink)', opacity: .12 }, svg);
-      S('path', { d, fill: 'none', stroke: 'var(--ink)', 'stroke-width': 2, 'stroke-linejoin': 'round' }, svg);
-      S('text', { x: WL - 8, y: sum + 10, 'text-anchor': 'end', class: 'ink2' }, svg, 'waves summed');
-      S('text', { x: WL - 8, y: sum + 23, 'text-anchor': 'end' }, svg, 'avg miles out');
-      const peak = Math.max(...tot) / n; S('text', { x: W - WR + 6, y: sb - Math.min(1, peak / mx) * SUMH + 4 }, svg, Math.round(peak) + ' mi');
-      S('text', { x: W - WR + 6, y: sb + 3 }, svg, '0');
-      // how many are on the ground at the hub
-      const cb = cnt + CNTH, cm = Math.max(8, ...ground); let c2 = `M${wx(X0)},${cb}`;
-      for (let k = 0; k < N; k++) c2 += `L${wx(X0 + k * STEP).toFixed(1)},${(cb - ground[k] / cm * CNTH).toFixed(1)}`;
-      S('path', { d: c2 + `L${wx(X1)},${cb}Z`, fill: 'var(--flow)', opacity: .85 }, svg);
-      S('line', { x1: WL, x2: W - WR, y1: cb, y2: cb, stroke: 'var(--axis)', 'stroke-width': 1 }, svg);
-      S('text', { x: WL - 8, y: cnt + 10, 'text-anchor': 'end', class: 'ink2' }, svg, 'on the ground');
-      S('text', { x: WL - 8, y: cnt + 23, 'text-anchor': 'end' }, svg, `at ${g.hub}`);
-      const pk = Math.max(...ground);
-      S('text', { x: W - WR + 6, y: cb - pk / cm * CNTH + 4 }, svg, `peak ${pk}`);
-    });
-  }
-  function readout() {
-    $('wave-readout').innerHTML = HUBS.map(h => { const b = base[h], c = conns(h, target); return `<b>${h}</b> connections with under 90 minutes to wait: <b>${num(mode ? c.short : b.short)}</b>${mode ? ` (was ${num(b.short)} as scheduled)` : ''}, typical wait ${mode ? c.med : b.med} min`; }).join('<br>');
-  }
-  function go(next) {
-    const from = shown, start = performance.now(), dur = matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 900;
-    target = next; readout();
-    const frame = now => { const k = dur ? Math.min(1, (now - start) / dur) : 1, e = k * k * (3 - 2 * k); shown = Object.fromEntries(craft.map(c => [c.id, from[c.id] + (next[c.id] - from[c.id]) * e])); draw(shown); if (k < 1) requestAnimationFrame(frame); };
-    requestAnimationFrame(frame);
-  }
-  document.querySelectorAll('#phase-toggle button').forEach(b => b.addEventListener('click', () => {
-    mode = +b.dataset.mode;
-    document.querySelectorAll('#phase-toggle button').forEach(x => x.setAttribute('aria-pressed', x === b));
-    go(mode ? Object.fromEntries(craft.map(c => [c.id, Math.round(rnd() * DAY / 5) * 5 - DAY / 2])) : zero);
-  }));
-  draw(zero); readout();
-})();
 })();
 </script>

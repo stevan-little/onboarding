@@ -7,6 +7,7 @@ Everything it emits comes from the warehouse repo's own simulator
 
 Usage:
     python3 tools/viz_data.py --inject viz/data-shapes.html   # refresh the page's data
+    python3 tools/viz_data.py --plan-only --inject viz/hub-waves.html
     python3 tools/viz_data.py > data.json                    # or just print the JSON
 """
 from __future__ import annotations
@@ -28,6 +29,8 @@ def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--warehouse", default=str(Path(__file__).parents[2] / "odysee-data-warehouse"))
     ap.add_argument("--day", default="2027-02-12")
+    ap.add_argument("--plan-only", action="store_true",
+                    help="schedule and airports only; skips the booking simulation (about 1s)")
     ap.add_argument("--inject", help="HTML page whose <script id=data> block gets the JSON")
     args = ap.parse_args()
     sys.path.insert(0, args.warehouse)
@@ -71,9 +74,16 @@ def main() -> None:
     ]
     used = sorted({x for leg in legs for x in (leg["o"], leg["d"])})
     airports = {
-        c: {"city": AIRPORTS[c].city, "lat": AIRPORTS[c].latitude, "lon": AIRPORTS[c].longitude}
+        c: {"city": AIRPORTS[c].city, "lat": AIRPORTS[c].latitude, "lon": AIRPORTS[c].longitude,
+            "intl": int(AIRPORTS[c].country != "USA")}
         for c in used
     }
+
+    if args.plan_only:
+        _emit(args, {"meta": {**meta, "focus_day": focus_day.isoformat(), "first": first.isoformat(),
+                              "last": last.isoformat(), "bands": len(schedule.legs)},
+                     "airports": airports, "legs": legs})
+        return
 
     # --- 2 & 3. reality: simulate the month, keep the coupons on the focus legs
     focus_ids = {}
@@ -125,6 +135,10 @@ def main() -> None:
                          "curves": {k: sorted(v, reverse=True) for k, v in curves[name].items()}}
                   for lid, name in focus_ids.items()},
     }
+    _emit(args, payload)
+
+
+def _emit(args: argparse.Namespace, payload: dict) -> None:
     text = json.dumps(payload, separators=(",", ":"))
     if args.inject:
         page = Path(args.inject)
