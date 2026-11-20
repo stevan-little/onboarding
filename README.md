@@ -59,6 +59,8 @@ viz/     data visualizations of the synthetic "Odysee Air" airline (no client da
                            switchable between seats, passengers, revenue and their ratios
          flight-profiles.html  sketch 12: parallel coordinates of seven measures per flight, with
                            brushing and a correlation table
+         flight-scatter-matrix.html  sketch 13: scatterplot matrix of the same seven measures, with
+                           histograms, correlations and linked box selection
 ```
 
 ## The repositories being studied
