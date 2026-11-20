@@ -12,6 +12,7 @@ Usage:
     python3 tools/viz_data.py --plan-only --inject viz/hub-retimer.html
     python3 tools/viz_data.py --journeys --inject viz/journey-flows.html
     python3 tools/viz_data.py --journeys --inject viz/fare-split.html
+    python3 tools/viz_data.py --loads --inject viz/load-calendar.html
     python3 tools/viz_data.py > data.json                    # or just print the JSON
 """
 from __future__ import annotations
@@ -38,6 +39,9 @@ def main() -> None:
     ap.add_argument("--journeys", action="store_true",
                     help="every origin-destination-via combination with its passengers and fares "
                          "for the whole month (runs the booking simulation, about 25s)")
+    ap.add_argument("--loads", action="store_true",
+                    help="seats sold, connecting passengers and revenue for every flight on every "
+                         "day of the month (runs the booking simulation, about 25s)")
     ap.add_argument("--inject", help="HTML page whose <script id=data> block gets the JSON")
     args = ap.parse_args()
     sys.path.insert(0, args.warehouse)
@@ -97,6 +101,27 @@ def main() -> None:
         _emit(args, {"meta": {**meta, "focus_day": focus_day.isoformat(), "first": first.isoformat(),
                               "last": last.isoformat(), "bands": len(schedule.legs)},
                      "airports": airports, "legs": legs})
+        return
+
+    if args.loads:
+        sim = Simulation(network, meta["seed"], date.fromisoformat(meta["reference_date"]), 1.0)
+        n_days = (last - first).days + 1
+        cells = {leg["id"]: {"pax": [0] * n_days, "flow": [0] * n_days, "rev": [0.0] * n_days} for leg in legs}
+        for day, _ in sim.run(first, last):
+            i = (day.day - first).days
+            for booking, di, li in day.coupons:
+                direction = booking.directions[di]
+                leg_id = direction.path.leg_ids[li]
+                cell, party = cells[leg_id], len(booking.passengers)
+                cell["pax"][i] += party
+                if not direction.path.nonstop:
+                    cell["flow"][i] += party
+                cell["rev"][i] += party * coupon_cents(booking, direction, network.miles(leg_id)) / 100
+        _emit(args, {"meta": {**meta, "scale": 1.0, "first": first.isoformat(), "last": last.isoformat()},
+                     "airports": airports,
+                     "flights": [{**{k: leg[k] for k in ("id", "fn", "o", "d", "dep", "arr", "seats", "ac")},
+                                  "pax": cells[leg["id"]]["pax"], "flow": cells[leg["id"]]["flow"],
+                                  "rev": [round(v) for v in cells[leg["id"]]["rev"]]} for leg in legs]})
         return
 
     if args.journeys:

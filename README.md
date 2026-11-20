@@ -51,6 +51,8 @@ viz/     data visualizations of the synthetic "Odysee Air" airline (no client da
          journey-flows.html  sketch 7: Sankey of a month of journeys: start, nonstop or connecting, end
          fare-split.html   sketch 8: Sankey of market fares being cut up and booked to routes, under
                            three prorate rules
+         load-calendar.html  sketch 9: heatmap of every flight on every day (seats sold, connecting
+                           share, revenue per seat)
 ```
 
 ## The repositories being studied
