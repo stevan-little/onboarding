@@ -7,6 +7,7 @@
   --page: #f9f9f7; --surface: #fcfcfb; --ink: #0b0b0b; --ink-2: #52514e; --muted: #898781;
   --grid: #e1e0d9; --axis: #c3c2b7; --ring: rgba(11,11,11,.10);
   --local: #2a78d6; --flow: #eb6834; --over: #d03b3b; --hubgap: rgba(11,11,11,.11);
+  --c-tight: #eda100; --c-good: #1baf7a; --c-long: #6250d6; --c-short: #d55181; --c-push: #b45f06;
   --h1: #cde2fb; --h2: #9ec5f4; --h3: #6da7ec; --h4: #3987e5; --h5: #256abf; --h6: #184f95; --h7: #0d366b;
   --d0: #e6e5df; --dp1: #9ec5f4; --dp2: #3987e5; --dp3: #184f95; --dn1: #f3b3b0; --dn2: #e34948; --dn3: #9f2020;
   --sans: system-ui, -apple-system, "Segoe UI", sans-serif;
@@ -17,6 +18,7 @@
     --page: #0d0d0d; --surface: #1a1a19; --ink: #f0efec; --ink-2: #c3c2b7; --muted: #898781;
     --grid: #2c2c2a; --axis: #383835; --ring: rgba(255,255,255,.10);
     --local: #3987e5; --flow: #d95926; --over: #e66767; --hubgap: rgba(255,255,255,.13);
+    --c-tight: #c98500; --c-good: #199e70; --c-long: #9085e9; --c-short: #e87ba4; --c-push: #eda100;
     --h1: #0d366b; --h2: #184f95; --h3: #256abf; --h4: #3987e5; --h5: #6da7ec; --h6: #9ec5f4; --h7: #cde2fb;
     --d0: #383835; --dp1: #184f95; --dp2: #3987e5; --dp3: #9ec5f4; --dn1: #7a1f1f; --dn2: #e34948; --dn3: #f3b3b0; color-scheme: dark;
   }
@@ -25,6 +27,7 @@
   --page: #0d0d0d; --surface: #1a1a19; --ink: #f0efec; --ink-2: #c3c2b7; --muted: #898781;
   --grid: #2c2c2a; --axis: #383835; --ring: rgba(255,255,255,.10);
   --local: #3987e5; --flow: #d95926; --over: #e66767; --hubgap: rgba(255,255,255,.13);
+    --c-tight: #c98500; --c-good: #199e70; --c-long: #9085e9; --c-short: #e87ba4; --c-push: #eda100;
   --h1: #0d366b; --h2: #184f95; --h3: #256abf; --h4: #3987e5; --h5: #6da7ec; --h6: #9ec5f4; --h7: #cde2fb;
     --d0: #383835; --dp1: #184f95; --dp2: #3987e5; --dp3: #9ec5f4; --dn1: #7a1f1f; --dn2: #e34948; --dn3: #f3b3b0; color-scheme: dark;
 }
@@ -117,9 +120,9 @@ footer { font-size: 12px; color: var(--muted); max-width: 76ch; }
       <li><b>A dark cap is demand that did not fit.</b> It counts seat requests the flight could not take. A doubled cap means more than about 50. A full bar with no cap was just enough aircraft; a full bar with a tall cap was too little.</li>
       <li><b>A shaded gap is an aircraft on the ground at its hub.</b> Where shaded gaps line up down the page, many aircraft are at the hub together. That is a bank, and the grey strip above each hub is those gaps counted.</li>
       <li><b>The orange strip is people.</b> It counts passengers who have got off one flight at the hub and not yet left on the next. The familiar chart shows aircraft meeting; this shows how many people were in between.</li>
-      <li><b>Click a flight to see its connections.</b> Orange ribbons run to the flights its passengers went on to, or came from, in proportion to the number of people. Thin grey lines are legal connections nobody used. Red dashes are near misses. The tinted band is the window in which a connection is allowed.</li>
+      <li><b>Click a flight to see its connections.</b> Ribbons run to the flights its passengers went on to, or came from, in proportion to the number of people, coloured by the wait: amber under 50 minutes, green 50 to 120, violet over two hours. Thin grey lines are legal connections nobody used. Pink dashes are near misses. The tinted band is the window in which a connection is allowed.</li>
       <li><b>Click an airport code between two flights for the out-and-back.</b> It shows who the flight out collected at the hub and who the flight back delivered. Cities named in bold are on both sides: the same market in its two directions.</li>
-      <li><b>Retime a flight.</b> Select one and use the −15, −5, +5, +15 buttons. The bar moves and leaves a dashed outline where it was scheduled; later flights on the same aircraft are pushed if the turn would drop below 30 minutes. Booked connections that no longer work are drawn in solid red with the number of passengers who miss them. Passengers are the ones who booked the original schedule: nobody rebooks.</li>
+      <li><b>Retime a flight.</b> Select one and use the −15, −5, +5, +15 buttons. The bar moves and leaves a dashed outline where it was scheduled; later flights on the same aircraft are pushed if the turn would drop below 30 minutes. A stripe under each bar says what happened to it: violet if you retimed it, brown if it was pushed, red if any of its passengers now miss a connection. Booked connections that no longer work are drawn in solid red with the number of passengers who miss them. Passengers are the ones who booked the original schedule: nobody rebooks.</li>
       <li><b>"One-way holes"</b> marks each airport that has connections working in one direction only over the whole day, with the count. Hover the airport code for the list, and for how close the missing direction comes.</li>
       <li><b>"Against its usual weekday"</b> recolours each bar by how that day compares with the same flight on the month's other three days of that weekday.</li>
     </ul>
@@ -2220,6 +2223,8 @@ const tx = t => ML + (Math.min(Math.max(t, V0), V1) - V0) / (V1 - V0) * PW;
 const vis = (a, b) => b > V0 && a < V1;
 const RH = 30, BH = 18, PXS = BH / 114, SH = 28, CAP = 8;     // row pitch, tallest bar, px per seat, strip height, tallest cap
 const svg = $('gantt');
+const waitCol = g => g < 50 ? 'var(--c-tight)' : g <= 120 ? 'var(--c-good)' : 'var(--c-long)';
+let hurt = new Set();
 
 /* ---------- column sums (the strips) ---------- */
 const grid = () => new Float64Array(NG);
@@ -2247,7 +2252,7 @@ function ticks(y, into) {
 function bar(l, y, g, hot) {
   if (!vis(l.dep, l.arr)) return;
   const early = l.dep < T0 && V0 === T0, x = tx(l.dep) + (early ? 9 : 0), w = Math.max(2, tx(l.arr) - x), h = l.seats * PXS, yb = y + RH - 4, pax = v(l.pax), fl = v(l.flow), ref = v(l.ref);
-  if (l.sh) S('rect', { x: tx(l.dep0) + .5, y: yb - h + .5, width: Math.max(1, tx(l.arr0) - tx(l.dep0) - 1), height: h - 1, rx: 2, fill: 'none', stroke: 'var(--over)', 'stroke-dasharray': '2 2' }, g);
+  if (l.sh) S('rect', { x: tx(l.dep0) + .5, y: yb - h + .5, width: Math.max(1, tx(l.arr0) - tx(l.dep0) - 1), height: h - 1, rx: 2, fill: 'none', stroke: user[l.id] ? 'var(--c-long)' : 'var(--c-push)', 'stroke-width': 1.4, 'stroke-dasharray': '3 2' }, g);
   if (mode === 'plain') S('rect', { x, y: yb - h, width: w, height: h, rx: 2, fill: l.ac === 'E75' ? 'var(--muted)' : 'var(--ink-2)' }, g);
   else if (mode === 'diff') { const d = (l.pax[day] - usual(l)) / l.seats, k = Math.abs(d) < .05 ? 0 : Math.abs(d) < .15 ? 1 : Math.abs(d) < .3 ? 2 : 3; S('rect', { x: x + .5, y: yb - h + .5, width: w - 1, height: h - 1, rx: 2, fill: k ? `var(--d${d > 0 ? 'p' : 'n'}${k})` : 'var(--surface)', stroke: k ? 'none' : 'var(--muted)' }, g); }
   else {
@@ -2259,12 +2264,15 @@ function bar(l, y, g, hot) {
   }
   const showNo = w > 24 && (mode === 'plain' || zoom !== 'day');
   if (showNo) S('text', { x: x + w / 2, y: yb - h / 2 + 3, 'text-anchor': 'middle', class: 'code' + (mode === 'plain' ? '' : ' strong halo'), style: mode === 'plain' ? 'fill:var(--surface)' : '' }, g, l.fn);
+  const st = hurt.has(l.id) ? 'var(--over)' : user[l.id] ? 'var(--c-long)' : l.sh ? 'var(--c-push)' : null;
+  if (st) S('rect', { x, y: yb + 1, width: w, height: 3.5, rx: 1, fill: st }, g);
   if (early) S('path', { d: `M${x - 7},${yb - h / 2}l5,-3.5v7z`, fill: 'var(--muted)' }, g);
   if (hot) S('rect', { x: x - 1.5, y: yb - h - 1.5, width: w + 3, height: h + 3, rx: 3, fill: 'none', stroke: 'var(--ink)', 'stroke-width': 2 }, g);
 }
 function draw() {
   clear(svg); strips = []; rowY = {}; box = {}; [V0, V1] = ZOOM[zoom];
   W = Math.max(980, Math.floor(svg.parentNode.clientWidth || 1120)); PW = W - ML - MR;
+  hurt = new Set(); if (anyMoved()) broken().forEach(k => { hurt.add(k.a.id); hurt.add(k.b.id); });
   const wait = waiting(), plain = mode === 'plain', zoomed = zoom !== 'day';
   const order = h => { const rows = AC.filter(a => a.hub === h); if (sort === 'rev') rows.sort((a, b) => acVal(b, 'rev') - acVal(a, 'rev')); else if (sort === 'pattern') rows.sort((a, b) => a.key.localeCompare(b.key) || a.legs[0].dep - b.legs[0].dep); return rows; };
   const gGrid = S('g', {}, svg), gRows = S('g', {}, svg);
@@ -2328,11 +2336,11 @@ function draw() {
     const mid = id => rowY[id] + RH - 4 - BH / 2, curve = k => { const xa = tx(k.a.arr), ya = mid(k.a.id), xb = tx(k.b.dep), yb = mid(k.b.id), dx = Math.max(14, (xb - xa) / 2); return `M${xa},${ya}C${xa + dx},${ya} ${xb - dx},${yb} ${xb},${yb}`; };
     ls.filter(k => vis(k.a.arr, k.b.dep)).sort((p, q) => p.pax - q.pax).forEach(k => {
       if (k.broken) S('path', { d: curve(k), fill: 'none', stroke: 'var(--over)', 'stroke-width': Math.max(1.5, k.pax * .22), opacity: .9 }, top);
-      else if (k.miss) S('path', { d: curve(k), fill: 'none', stroke: 'var(--over)', 'stroke-width': 1.3, 'stroke-dasharray': '3 3' }, top);
+      else if (k.miss) S('path', { d: curve(k), fill: 'none', stroke: 'var(--c-short)', 'stroke-width': 1.6, 'stroke-dasharray': '3 3' }, top);
       else if (k.pax <= 0) S('path', { d: curve(k), fill: 'none', stroke: 'var(--muted)', 'stroke-width': .8, opacity: .8 }, top);
-      else S('path', { d: curve(k), fill: 'none', stroke: 'var(--flow)', 'stroke-width': Math.max(1, k.pax * .22), 'stroke-linecap': 'butt', opacity: .8 }, top);
+      else S('path', { d: curve(k), fill: 'none', stroke: waitCol(k.gap), 'stroke-width': Math.max(1.2, k.pax * .22), 'stroke-linecap': 'butt', opacity: .88 }, top);
     });
-    ls.forEach(k => { const o = k.other; if (!vis(o.dep, o.arr)) return; bar(o, rowY[o.id], top, false); const lab = k.broken ? `${k.onward ? o.d : o.o} ${cnt(k.pax)} missed` : k.miss ? `${k.onward ? o.d : o.o} ${k.short}′ short` : `${k.onward ? o.d : o.o}${k.pax > 0 ? ' ' + cnt(k.pax) : ''}`; S('text', { x: k.onward ? tx(o.dep) + 2 : tx(o.arr) - 2, y: rowY[o.id] + RH - 4 - o.seats * PXS - 3, 'text-anchor': k.onward ? 'start' : 'end', class: 'halo ' + ((tp ? k.match : k.pax > 0) ? 'strong' : 'ink2'), 'font-size': k.broken ? 10.5 : 9.5, style: k.miss ? 'fill:var(--over)' : '' }, top, lab); });
+    ls.forEach(k => { const o = k.other; if (!vis(o.dep, o.arr)) return; bar(o, rowY[o.id], top, false); const lab = k.broken ? `${k.onward ? o.d : o.o} ${cnt(k.pax)} missed` : k.miss ? `${k.onward ? o.d : o.o} ${k.short}′ short` : `${k.onward ? o.d : o.o}${k.pax > 0 ? ' ' + cnt(k.pax) : ''}`; S('text', { x: k.onward ? tx(o.dep) + 2 : tx(o.arr) - 2, y: rowY[o.id] + RH - 4 - o.seats * PXS - 3, 'text-anchor': k.onward ? 'start' : 'end', class: 'halo ' + ((tp ? k.match : k.pax > 0) ? 'strong' : 'ink2'), 'font-size': k.broken ? 10.5 : 9.5, style: k.broken ? 'fill:var(--over)' : k.miss ? 'fill:var(--c-short)' : '' }, top, lab); });
     (tp || [x]).forEach(f => bar(f, rowY[f.id], top, true));
   }
   /* pointer layer */
@@ -2386,7 +2394,8 @@ function legend() {
   $('legend').innerHTML = (mode === 'gauge' ? sw('background:var(--surface);outline:1px solid var(--muted)', 'seats on the aircraft') + sw('background:var(--local)', 'sold, local') + sw('background:var(--flow)', 'sold, connecting') + sw('background:var(--ink);height:4px', 'seat requests it could not take (doubled: over 50)')
     : mode === 'diff' ? `<span>seats sold against the same flight's other ${day < 0 ? 'days' : DOW[dates[day].getUTCDay()] + 's'}:</span>` + [['dn3', '30+ points emptier'], ['dn2', '15–30'], ['dn1', '5–15'], ['surface);outline:1px solid var(--muted', 'within 5'], ['dp1', '5–15'], ['dp2', '15–30'], ['dp3', '30+ points fuller']].map(([c, t]) => sw(`background:var(--${c})`, t)).join('') + sw('background:linear-gradient(90deg,var(--local) 50%,var(--flow) 50%)', 'strip and margin: local, connecting')
     : sw('background:var(--ink-2)', '114-seat 737-700') + sw('background:var(--muted);height:5px', '64-seat E175')) + hubgap + (holesOn ? sw('background:var(--over);opacity:.5', 'airport with one-way connections, and how many') : '')
-    + (sel ? `<span><svg width="22" height="8" style="width:22px"><line x1="0" y1="4" x2="22" y2="4" stroke="var(--flow)" stroke-width="4"/></svg>passengers connecting</span><span><svg width="22" height="8" style="width:22px"><line x1="0" y1="4" x2="22" y2="4" stroke="var(--over)" stroke-width="1.4" stroke-dasharray="3 3"/></svg>near miss</span>` + (turn && turnOf(byId[sel]) ? `<span><b style="color:var(--ink)">BOS</b>&nbsp;city on both sides of this out-and-back</span>` : '') : '');
+    + (sel ? `<span><svg width="22" height="8" style="width:22px"><line x1="0" y1="4" x2="22" y2="4" stroke="var(--c-tight)" stroke-width="4"/></svg>connects in under 50 min</span><span><svg width="22" height="8" style="width:22px"><line x1="0" y1="4" x2="22" y2="4" stroke="var(--c-good)" stroke-width="4"/></svg>50 to 120 min</span><span><svg width="22" height="8" style="width:22px"><line x1="0" y1="4" x2="22" y2="4" stroke="var(--c-long)" stroke-width="4"/></svg>over 2 hours</span><span><svg width="22" height="8" style="width:22px"><line x1="0" y1="4" x2="22" y2="4" stroke="var(--muted)" stroke-width="1"/></svg>legal, unused</span><span><svg width="22" height="8" style="width:22px"><line x1="0" y1="4" x2="22" y2="4" stroke="var(--c-short)" stroke-width="1.6" stroke-dasharray="3 3"/></svg>near miss: too short to make</span><span><svg width="22" height="8" style="width:22px"><line x1="0" y1="4" x2="22" y2="4" stroke="var(--over)" stroke-width="4"/></svg>missed after retiming</span>` + (turn && turnOf(byId[sel]) ? `<span><b style="color:var(--ink)">BOS</b>&nbsp;city on both sides of this out-and-back</span>` : '') : '');
+  if (anyMoved()) $('legend').insertAdjacentHTML('beforeend', [['c-long', 'retimed by you'], ['c-push', 'pushed by the flight before it'], ['over', 'has passengers who miss a connection']].map(([c, t]) => `<span><i class="sw" style="background:var(--${c});height:4px"></i>${t}</span>`).join(''));
 }
 function spark(l) {
   const w = 236, h = 50, cw = w / ND; let s = `<svg viewBox="0 0 ${w} ${h}" role="img" aria-label="Seats sold on each day of the month">`;
