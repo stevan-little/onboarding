@@ -34,6 +34,14 @@ figure, .card { margin: 0; background: var(--surface); border: 1px solid var(--r
 .rows .lab { font-family: var(--mono); color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } .rows .lab b { color: var(--ink); }
 .rows .bar { display: flex; height: 17px; min-width: 0; } .rows .bar i { display: block; height: 100%; box-shadow: inset -1px 0 0 var(--surface); min-width: 0; }
 .rows .bar i:hover { filter: brightness(1.25); } .rows .bar i.gap { margin-left: 2px; }
+.rows [data-c] { cursor: pointer; } .rows .lab.on { background: var(--grid); border-radius: 3px; }
+.detail { grid-column: 1 / -1; border: 1px solid var(--axis); border-radius: 8px; padding: 12px 14px; margin: 4px 0 10px; display: flex; flex-direction: column; gap: 8px; }
+.detail p { font-size: 13px; max-width: none; }
+.bf { display: grid; grid-template-columns: 56px minmax(0, 1fr) 170px minmax(0, 1fr) 56px; gap: 2px 8px; align-items: center; font-size: 12px; }
+.bf .h { color: var(--muted); font-size: 11px; } .bf .n { font-variant-numeric: tabular-nums; color: var(--ink); } .bf .n.l { text-align: right; }
+.bf .c { text-align: center; font-family: var(--mono); color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } .bf .c b { color: var(--ink); }
+.bf .b { height: 12px; border-radius: 2px; } .bf .b.l { justify-self: end; }
+@media (max-width: 700px) { .bf { grid-template-columns: 44px minmax(0, 1fr) 84px minmax(0, 1fr) 44px; } }
 .rows .tot { font-variant-numeric: tabular-nums; color: var(--ink-2); white-space: nowrap; }
 .cards { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 16px; } @media (max-width: 900px) { .cards { grid-template-columns: minmax(0, 1fr); } .rows { grid-template-columns: 96px minmax(0, 1fr) 70px; } }
 .card ul { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 6px; font-size: 13.5px; color: var(--ink-2); }
@@ -59,7 +67,7 @@ footer { font-size: 12px; color: var(--muted); max-width: 80ch; }
 <figure>
   <div class="legend" id="legend"></div>
   <div class="rows" id="rows"></div>
-  <div class="sub">Hover any block for the city and the number of passengers. The figure on the right is the route's passengers and the share of them connecting.</div>
+  <div class="sub">Hover any block for the city and the number of passengers. Click a row to open that airport's flows in both directions, city by city; click it again to close. The figure on the right is the route's passengers and the share of them connecting.</div>
 </figure>
 <div class="cards">
   <div class="card"><h2 id="mtitle"></h2><div class="tw"><table id="matrix"></table></div><div class="sub">Connecting passengers through the hub in the month, from the region in each row to the region in each column. Darker cells are larger.</div></div>
@@ -79,7 +87,7 @@ const REG = [['Northeast', 'r-ne'], ['Mid-Atlantic', 'r-ma'], ['Midwest', 'r-mw'
 const col = Object.fromEntries(REG), rix = Object.fromEntries(REG.map((r, i) => [r[0], i]));
 const reg = c => HUBS.includes(c) ? 'Other hub' : D.airports[c].region;
 const J = D.journeys.map(([o, d, via, pax, rev]) => ({ o, d, via, pax, rev }));
-let hub = 'PIT', dir = 'out', scale = 'abs', sort = 'region';
+let hub = 'PIT', dir = 'out', scale = 'abs', sort = 'region', pick = null;
 const tip = $('tip'), showTip = (ev, html) => { tip.innerHTML = html; tip.hidden = false; const r = tip.getBoundingClientRect(); let x = ev.clientX + 14, y = ev.clientY + 16; if (x + r.width > innerWidth - 8) x = ev.clientX - r.width - 14; if (y + r.height > innerHeight - 8) y = ev.clientY - r.height - 14; tip.style.left = Math.max(8, x) + 'px'; tip.style.top = Math.max(8, y) + 'px'; };
 
 function model() {                                         // one record per airport: local passengers and connecting ones by far-end city
@@ -91,6 +99,15 @@ function model() {                                         // one record per air
   });
   return Object.values(A).filter(a => a.local > 0).map(a => { a.conn = sum(Object.values(a.far)); a.tot = a.local + a.conn; a.cities = Object.entries(a.far).sort((x, y) => rix[reg(x[0])] - rix[reg(y[0])] || y[1] - x[1]); return a; });
 }
+function detail(X) {                                       // one airport, both directions, city by city
+  const out = {}, inn = {}; let lo = 0, li = 0;
+  J.forEach(j => { if (j.o === X && j.d === hub && !j.via) lo += j.pax; else if (j.o === hub && j.d === X && !j.via) li += j.pax; else if (j.via === hub && j.o === X) out[j.d] = (out[j.d] || 0) + j.pax; else if (j.via === hub && j.d === X) inn[j.o] = (inn[j.o] || 0) + j.pax; });
+  const cities = [...new Set([...Object.keys(out), ...Object.keys(inn)])].sort((a, b) => (out[b] || 0) + (inn[b] || 0) - (out[a] || 0) - (inn[a] || 0)), mx = Math.max(1, ...cities.map(c => Math.max(out[c] || 0, inn[c] || 0)));
+  const so = sum(Object.values(out)), si = sum(Object.values(inn)), oneWay = cities.filter(c => !out[c] || !inn[c]), name = D.airports[X].city;
+  return `<div class="detail"><p><b>${X} ${name}, through ${HUB_NAME[hub]}.</b> Leaving ${name}: ${num(lo)} passengers went no further than ${hub} and <b>${num(so)}</b> connected on to ${Object.keys(out).length} cities. Arriving: ${num(li)} came from ${hub} itself and <b>${num(si)}</b> connected in from ${Object.keys(inn).length} cities. ${oneWay.length ? `Carried in one direction only: ${oneWay.join(', ')}.` : 'Every city has passengers in both directions.'}</p>
+    <div class="bf"><span class="h n l">passengers</span><span class="h" style="text-align:right">arriving at ${X} from</span><span class="h c">city</span><span class="h">leaving ${X} for</span><span class="h n">passengers</span>`
+    + cities.map(c => { const col_ = `var(--${col[reg(c)]})`, a = inn[c] || 0, b = out[c] || 0; return `<span class="n l">${a ? num(a) : ''}</span><i class="b l" style="width:${a / mx * 100}%;background:${col_}"></i><span class="c"><b>${c}</b> ${D.airports[c].city}</span><i class="b" style="width:${b / mx * 100}%;background:${col_}"></i><span class="n">${b ? num(b) : ''}</span>`; }).join('') + `</div></div>`;
+}
 function draw() {
   const M = model(), max = Math.max(...M.map(a => a.tot));
   M.sort(sort === 'conn' ? (a, b) => b.conn / b.tot - a.conn / a.tot : sort === 'size' ? (a, b) => b.tot - a.tot : (a, b) => rix[reg(a.c)] - rix[reg(b.c)] || b.tot - a.tot);
@@ -99,9 +116,9 @@ function draw() {
   M.forEach(a => {
     if (sort === 'region' && reg(a.c) !== last) { last = reg(a.c); html += `<div class="grp"><i class="sw" style="background:var(--${col[last]})"></i>${last === 'Other hub' ? 'The other hub' : last}</div>`; }
     const w = v => (v / (scale === 'abs' ? max : a.tot) * 100).toFixed(3) + '%'; let prev = '';
-    html += `<div class="lab"><b>${a.c}</b> ${D.airports[a.c].city}</div><div class="bar"><i style="width:${w(a.local)};background:var(--local)" data-t="<b>${dir === 'out' ? a.c + ' → ' + hub : hub + ' → ' + a.c}</b> going no further<br>${num(a.local)} passengers (${pct(a.local / a.tot)} of the route)"></i>`
+    html += `<div class="lab${a.c === pick ? ' on' : ''}" data-c="${a.c}"><b>${a.c}</b> ${D.airports[a.c].city}</div><div class="bar" data-c="${a.c}"><i style="width:${w(a.local)};background:var(--local)" data-t="<b>${dir === 'out' ? a.c + ' → ' + hub : hub + ' → ' + a.c}</b> going no further<br>${num(a.local)} passengers (${pct(a.local / a.tot)} of the route)"></i>`
       + a.cities.map(([c, v]) => { const g = reg(c) !== prev; prev = reg(c); return `<i class="${g ? 'gap' : ''}" style="width:${w(v)};background:var(--${col[reg(c)]})" data-t="<b>${arrow(a.c, c)}</b><br>${D.airports[c].city}, ${reg(c) === 'Other hub' ? 'the other hub' : reg(c)}<br>${num(v)} passengers (${pct(v / a.tot)} of the route, ${pct(v / a.conn)} of its connecting)"></i>`; }).join('')
-      + `</div><div class="tot">${num(a.tot)} · ${pct(a.conn / a.tot)}</div>`;
+      + `</div><div class="tot" data-c="${a.c}">${num(a.tot)} · ${pct(a.conn / a.tot)}</div>` + (a.c === pick ? detail(a.c) : '');
   });
   $('rows').innerHTML = html;
   $('legend').innerHTML = `<span><i class="sw" style="background:var(--local)"></i>going no further than ${hub}</span>` + REG.filter(r => M.some(a => a.cities.some(c => reg(c[0]) === r[0]))).map(r => `<span><i class="sw" style="background:var(--${r[1]})"></i>${dir === 'out' ? 'on to' : 'from'} ${r[0] === 'Other hub' ? 'the other hub' : r[0]}</span>`).join('');
@@ -127,6 +144,7 @@ function draw() {
 }
 $('rows').addEventListener('mousemove', ev => { const t = ev.target.closest('i[data-t]'); if (t) showTip(ev, t.dataset.t); else tip.hidden = true; });
 $('rows').addEventListener('mouseleave', () => { tip.hidden = true; });
+$('rows').addEventListener('click', ev => { const t = ev.target.closest('[data-c]'); if (!t) return; pick = pick === t.dataset.c ? null : t.dataset.c; tip.hidden = true; draw(); });
 HUBS.forEach(h => { const b = document.createElement('button'); b.type = 'button'; b.dataset.v = h; b.textContent = h; $('hub').appendChild(b); });
 const state = { hub: v => { hub = v; }, dir: v => { dir = v; }, scale: v => { scale = v; }, sort: v => { sort = v; } }, cur = () => ({ hub, dir, scale, sort });
 function sync() { Object.keys(state).forEach(id => [...$(id).children].forEach(b => b.setAttribute('aria-pressed', b.dataset.v === cur()[id]))); draw(); }
