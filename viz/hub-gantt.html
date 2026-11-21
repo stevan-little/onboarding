@@ -99,6 +99,7 @@ footer { font-size: 12px; color: var(--muted); max-width: 76ch; }
     <span class="l">zoom</span>
     <div class="seg" id="zoom" role="group" aria-label="Time window"><button type="button" data-v="day">Whole day</button><button type="button" data-v="am">Morning</button><button type="button" data-v="mid">Midday</button><button type="button" data-v="pm">Evening</button></div>
     <button type="button" class="plain" id="holes">One-way holes</button>
+    <button type="button" class="plain" id="unshift">Put all flights back</button>
   </div>
 </div>
 <div class="readbar"><div class="reading" id="reading"></div></div>
@@ -118,6 +119,7 @@ footer { font-size: 12px; color: var(--muted); max-width: 76ch; }
       <li><b>The orange strip is people.</b> It counts passengers who have got off one flight at the hub and not yet left on the next. The familiar chart shows aircraft meeting; this shows how many people were in between.</li>
       <li><b>Click a flight to see its connections.</b> Orange ribbons run to the flights its passengers went on to, or came from, in proportion to the number of people. Thin grey lines are legal connections nobody used. Red dashes are near misses. The tinted band is the window in which a connection is allowed.</li>
       <li><b>Click an airport code between two flights for the out-and-back.</b> It shows who the flight out collected at the hub and who the flight back delivered. Cities named in bold are on both sides: the same market in its two directions.</li>
+      <li><b>Retime a flight.</b> Select one and use the −15, −5, +5, +15 buttons. The bar moves and leaves a dashed outline where it was scheduled; later flights on the same aircraft are pushed if the turn would drop below 30 minutes. Booked connections that no longer work are drawn in solid red with the number of passengers who miss them. Passengers are the ones who booked the original schedule: nobody rebooks.</li>
       <li><b>"One-way holes"</b> marks each airport that has connections working in one direction only over the whole day, with the count. Hover the airport code for the list, and for how close the missing direction comes.</li>
       <li><b>"Against its usual weekday"</b> recolours each bar by how that day compares with the same flight on the month's other three days of that weekday.</li>
     </ul>
@@ -2145,7 +2147,8 @@ const AC = Object.values(rots).map(legs => {
   return { legs, hub, spokes, rep, key: spokes.slice().sort().join('·'), label: spokes.slice(0, 3).join('·') + (spokes.length > 3 ? '…' : ''), air: sum(legs.map(l => l.arr - l.dep)) };
 });
 AC.sort((a, b) => HUBS.indexOf(a.hub) - HUBS.indexOf(b.hub) || a.legs[0].dep - b.legs[0].dep);
-AC.forEach((a, i) => { a.n = i + 1; a.legs.forEach((l, k) => { l.ac_ = a; l.k_ = k; }); });
+AC.forEach((a, i) => { a.n = i + 1; a.legs.forEach((l, k) => { l.ac_ = a; l.k_ = k; l.dep0 = l.dep; l.arr0 = l.arr; l.sh = 0; }); });
+let user = {};
 const acVal = (a, k) => sum(a.legs.map(l => v(l[k])));
 
 /* ---------- connections ---------- */
@@ -2157,9 +2160,25 @@ function conn(a, b) {                                      // can a passenger st
   const mct = (intl(a.o) || intl(hub) || intl(b.d)) ? 60 : 35, p = pairKey[a.id + '>' + b.id];
   return { a, b, gap, miss: gap < mct, short: mct - gap, pax: p ? v(p.vals) : 0 };
 }
+const was = (a, b) => { if (a === b || a.d !== b.o || b.d === a.o) return false; const gap = b.dep0 - a.arr0; if (gap < 0 || gap > 240 || miles(a.o, a.d) + miles(a.d, b.d) > 1.5 * miles(a.o, b.d)) return false; return gap >= ((intl(a.o) || intl(a.d) || intl(b.d)) ? 60 : 35); };
+const anyMoved = () => L.some(l => l.sh);
+function applyShifts() {
+  AC.forEach(a => { const legs = a.legs, sh = legs.map(l => user[l.id] || 0), gap = j => Math.min(legs[j].dep0 - legs[j - 1].arr0, 30);
+    for (let j = legs.length - 1; j >= 1; j--) if (sh[j] < 0) sh[j - 1] = Math.min(sh[j - 1], legs[j].dep0 + sh[j] - gap(j) - legs[j - 1].arr0);
+    for (let j = 1; j < legs.length; j++) sh[j] = Math.max(sh[j], legs[j - 1].arr0 + sh[j - 1] + gap(j) - legs[j].dep0);
+    legs.forEach((l, j) => { l.sh = sh[j]; l.dep = l.dep0 + sh[j]; l.arr = l.arr0 + sh[j]; }); });
+  setGround(); for (const k in holeCache) delete holeCache[k];
+}
+function broken() {                                        // booked connections the retimed schedule no longer makes
+  const out = []; pairs.forEach(p => { const x = v(p.vals); if (x <= 0 || !was(p.a, p.b)) return; const k = conn(p.a, p.b); if (!k || k.miss) out.push({ a: p.a, b: p.b, pax: x }); }); return out;
+}
 function links(x) {                                        // every flight x could hand passengers to, or take them from
   const out = [];
-  L.forEach(y => { const k = conn(x, y), j = conn(y, x); if (k) out.push({ ...k, other: y, onward: true }); if (j) out.push({ ...j, other: y, onward: false }); });
+  const mv = anyMoved();
+  L.forEach(y => [[x, y, true], [y, x, false]].forEach(([a, b, on]) => {
+    const k = conn(a, b), p = pairKey[a.id + '>' + b.id], px = p ? v(p.vals) : 0, w = mv && px > 0 && was(a, b);
+    if (k) out.push({ ...k, other: y, onward: on, broken: w && k.miss }); else if (w) out.push({ a, b, gap: b.dep - a.arr, miss: true, short: 0, pax: px, other: y, onward: on, broken: true });
+  }));
   return out;
 }
 function turnOf(x) {                                       // the out-and-back x belongs to: [flight out to an airport, flight back from it]
@@ -2205,7 +2224,7 @@ const svg = $('gantt');
 /* ---------- column sums (the strips) ---------- */
 const grid = () => new Float64Array(NG);
 const fill = (g, t0, t1, w) => { const a = Math.max(0, Math.round((t0 - T0) / STEP)), b = Math.min(NG, Math.round((t1 - T0) / STEP)); for (let k = a; k < b; k++) g[k] += w; };
-const ground = {}; HUBS.forEach(h => { const g = ground[h] = grid(); AC.forEach(a => { a.legs.forEach((l, i) => { const nx = a.legs[i + 1]; if (nx && l.d === h && nx.o === h) fill(g, l.arr, nx.dep, 1); }); if (a.legs[0].o === h) fill(g, T0, a.legs[0].dep, 1); const z = a.legs[a.legs.length - 1]; if (z.d === h) fill(g, z.arr, T1, 1); }); });
+const ground = {}; const setGround = () => HUBS.forEach(h => { const g = ground[h] = grid(); AC.forEach(a => { a.legs.forEach((l, i) => { const nx = a.legs[i + 1]; if (nx && l.d === h && nx.o === h) fill(g, l.arr, nx.dep, 1); }); if (a.legs[0].o === h) fill(g, T0, a.legs[0].dep, 1); const z = a.legs[a.legs.length - 1]; if (z.d === h) fill(g, z.arr, T1, 1); }); }); setGround();
 function waiting() { const w = {}; HUBS.forEach(h => { w[h] = grid(); }); pairs.forEach(p => { if (w[p.a.d]) fill(w[p.a.d], p.a.arr, p.b.dep, v(p.vals)); }); return w; }
 const peak = g => { let m = 0, k = 0; g.forEach((x, i) => { if (x > m) { m = x; k = i; } }); return [m, T0 + k * STEP]; };
 
@@ -2228,6 +2247,7 @@ function ticks(y, into) {
 function bar(l, y, g, hot) {
   if (!vis(l.dep, l.arr)) return;
   const early = l.dep < T0 && V0 === T0, x = tx(l.dep) + (early ? 9 : 0), w = Math.max(2, tx(l.arr) - x), h = l.seats * PXS, yb = y + RH - 4, pax = v(l.pax), fl = v(l.flow), ref = v(l.ref);
+  if (l.sh) S('rect', { x: tx(l.dep0) + .5, y: yb - h + .5, width: Math.max(1, tx(l.arr0) - tx(l.dep0) - 1), height: h - 1, rx: 2, fill: 'none', stroke: 'var(--over)', 'stroke-dasharray': '2 2' }, g);
   if (mode === 'plain') S('rect', { x, y: yb - h, width: w, height: h, rx: 2, fill: l.ac === 'E75' ? 'var(--muted)' : 'var(--ink-2)' }, g);
   else if (mode === 'diff') { const d = (l.pax[day] - usual(l)) / l.seats, k = Math.abs(d) < .05 ? 0 : Math.abs(d) < .15 ? 1 : Math.abs(d) < .3 ? 2 : 3; S('rect', { x: x + .5, y: yb - h + .5, width: w - 1, height: h - 1, rx: 2, fill: k ? `var(--d${d > 0 ? 'p' : 'n'}${k})` : 'var(--surface)', stroke: k ? 'none' : 'var(--muted)' }, g); }
   else {
@@ -2295,6 +2315,9 @@ function draw() {
 
   /* selection: veil, window, ribbons, partners */
   const top = S('g', {}, svg);
+  if (!sel && anyMoved()) broken().forEach(k => { if (!vis(Math.min(k.a.arr, k.b.dep), Math.max(k.a.arr, k.b.dep))) return; const m = id => rowY[id] + RH - 4 - BH / 2, xa = tx(k.a.arr), xb = tx(k.b.dep), dx = Math.max(14, Math.abs(xb - xa) / 2);
+    S('path', { d: `M${xa},${m(k.a.id)}C${xa + dx},${m(k.a.id)} ${xb - dx},${m(k.b.id)} ${xb},${m(k.b.id)}`, fill: 'none', stroke: 'var(--over)', 'stroke-width': Math.max(1.5, k.pax * .22), opacity: .85 }, top);
+    S('text', { x: xb + 2, y: rowY[k.b.id] + RH - 4 - k.b.seats * PXS - 3, class: 'halo', 'font-size': 10, style: 'fill:var(--over);font-weight:700' }, top, `${k.b.d} ${cnt(k.pax)}`); });
   if (sel) {
     const x = byId[sel], tp = turn ? turnOf(x) : null, ls = tp ? turnLinks(tp) : links(x), m = intl(x.o) || intl(x.d) ? 60 : 35; if (plain) ls.forEach(k => { k.pax = 0; });
     S('rect', { x: ML, y: plotTop, width: PW, height: plotBot - plotTop, fill: 'var(--surface)', opacity: .72 }, top);
@@ -2304,11 +2327,12 @@ function draw() {
     band(fo.o, fo.dep - m, fo.dep, 'var(--over)', .11); band(fo.o, fo.dep - 240, fo.dep - m, 'var(--local)', .08);
     const mid = id => rowY[id] + RH - 4 - BH / 2, curve = k => { const xa = tx(k.a.arr), ya = mid(k.a.id), xb = tx(k.b.dep), yb = mid(k.b.id), dx = Math.max(14, (xb - xa) / 2); return `M${xa},${ya}C${xa + dx},${ya} ${xb - dx},${yb} ${xb},${yb}`; };
     ls.filter(k => vis(k.a.arr, k.b.dep)).sort((p, q) => p.pax - q.pax).forEach(k => {
-      if (k.miss) S('path', { d: curve(k), fill: 'none', stroke: 'var(--over)', 'stroke-width': 1.3, 'stroke-dasharray': '3 3' }, top);
+      if (k.broken) S('path', { d: curve(k), fill: 'none', stroke: 'var(--over)', 'stroke-width': Math.max(1.5, k.pax * .22), opacity: .9 }, top);
+      else if (k.miss) S('path', { d: curve(k), fill: 'none', stroke: 'var(--over)', 'stroke-width': 1.3, 'stroke-dasharray': '3 3' }, top);
       else if (k.pax <= 0) S('path', { d: curve(k), fill: 'none', stroke: 'var(--muted)', 'stroke-width': .8, opacity: .8 }, top);
       else S('path', { d: curve(k), fill: 'none', stroke: 'var(--flow)', 'stroke-width': Math.max(1, k.pax * .22), 'stroke-linecap': 'butt', opacity: .8 }, top);
     });
-    ls.forEach(k => { const o = k.other; if (!vis(o.dep, o.arr)) return; bar(o, rowY[o.id], top, false); const lab = k.miss ? `${k.onward ? o.d : o.o} ${k.short}′ short` : `${k.onward ? o.d : o.o}${k.pax > 0 ? ' ' + cnt(k.pax) : ''}`; S('text', { x: k.onward ? tx(o.dep) + 2 : tx(o.arr) - 2, y: rowY[o.id] + RH - 4 - o.seats * PXS - 3, 'text-anchor': k.onward ? 'start' : 'end', class: 'halo ' + ((tp ? k.match : k.pax > 0) ? 'strong' : 'ink2'), 'font-size': 9.5, style: k.miss ? 'fill:var(--over)' : '' }, top, lab); });
+    ls.forEach(k => { const o = k.other; if (!vis(o.dep, o.arr)) return; bar(o, rowY[o.id], top, false); const lab = k.broken ? `${k.onward ? o.d : o.o} ${cnt(k.pax)} missed` : k.miss ? `${k.onward ? o.d : o.o} ${k.short}′ short` : `${k.onward ? o.d : o.o}${k.pax > 0 ? ' ' + cnt(k.pax) : ''}`; S('text', { x: k.onward ? tx(o.dep) + 2 : tx(o.arr) - 2, y: rowY[o.id] + RH - 4 - o.seats * PXS - 3, 'text-anchor': k.onward ? 'start' : 'end', class: 'halo ' + ((tp ? k.match : k.pax > 0) ? 'strong' : 'ink2'), 'font-size': k.broken ? 10.5 : 9.5, style: k.miss ? 'fill:var(--over)' : '' }, top, lab); });
     (tp || [x]).forEach(f => bar(f, rowY[f.id], top, true));
   }
   /* pointer layer */
@@ -2387,15 +2411,22 @@ function reading() {
   }
   const ls = links(x);
   if (mode === 'plain') { const ok = ls.filter(k => !k.miss), ms = ls.filter(k => k.miss); el.innerHTML = `<div><b class="mono">OC ${x.fn} ${x.o} → ${x.d}</b> ${clock(x.dep)}–${clock(x.arr)}, aircraft ${String(x.ac_.n).padStart(2, '0')}, ${x.seats} seats. The schedule allows <b>${plural(ok.filter(k => !k.onward).length, 'connection')}</b> into it and <b>${ok.filter(k => k.onward).length}</b> out of it${ms.length ? `, with ${ms.length} more that miss by under ${Math.max(...ms.map(k => k.short)) + 1} minutes` : ''}. Pick another view to see how many people used each.</div>`; return; }
-  const used = ls.filter(k => !k.miss && k.pax > 0).sort((a, b) => b.pax - a.pax), miss = ls.filter(k => k.miss), idle = ls.filter(k => !k.miss && k.pax <= 0), p = v(x.pax), f = v(x.flow), r = v(x.ref), so = x.pax.filter(q => q >= x.seats).length;
+  const used = ls.filter(k => !k.miss && k.pax > 0).sort((a, b) => b.pax - a.pax), miss = ls.filter(k => k.miss && !k.broken), idle = ls.filter(k => !k.miss && k.pax <= 0), p = v(x.pax), f = v(x.flow), r = v(x.ref), so = x.pax.filter(q => q >= x.seats).length;
   const side = on => { const u = used.filter(k => k.onward === on); return u.length ? `<b>${cnt(sum(u.map(k => k.pax)))}</b> ${on ? 'went on to' : 'came off'} ${plural(u.length, 'flight')}: ${u.slice(0, 4).map(k => `${on ? k.other.d : k.other.o} ${cnt(k.pax)} <span style="color:var(--muted)">(${k.gap} min)</span>`).join(', ')}${u.length > 4 ? ', …' : ''}` : ''; };
-  el.innerHTML = `<div><b class="mono">OC ${x.fn} ${x.o} → ${x.d}</b> ${clock(x.dep)}–${clock(x.arr)}, aircraft ${String(x.ac_.n).padStart(2, '0')}. <b>${Day()}:</b> ${cnt(p)} of ${x.seats} sold (${cnt(p - f)} local, ${cnt(f)} connecting)${r >= .05 ? `, ${plural(r, 'request')} not seated` : ''}, $${num(v(x.rev))} booked. Month: ${pct(sum(x.pax) / (x.seats * ND))} full, sold out ${so} of ${ND} days.<br>${[side(false), side(true)].filter(Boolean).join('. ') || 'Nobody connected to or from it'}.${idle.length ? ` ${plural(idle.length, 'legal connection')} unused.` : ''}${miss.length ? ` ${plural(miss.length, 'near miss').replace('misss', 'misses')}, the closest ${Math.min(...miss.map(k => k.short))} min short.` : ''}${turnOf(x) ? ' <button type="button" class="plain" id="oab" style="padding:1px 8px">Show its out-and-back</button>' : ''}</div>${spark(x)}`;
+  el.innerHTML = `<div><b class="mono">OC ${x.fn} ${x.o} → ${x.d}</b> ${clock(x.dep)}–${clock(x.arr)}, aircraft ${String(x.ac_.n).padStart(2, '0')}. <b>${Day()}:</b> ${cnt(p)} of ${x.seats} sold (${cnt(p - f)} local, ${cnt(f)} connecting)${r >= .05 ? `, ${plural(r, 'request')} not seated` : ''}, $${num(v(x.rev))} booked. Month: ${pct(sum(x.pax) / (x.seats * ND))} full, sold out ${so} of ${ND} days.<br>${[side(false), side(true)].filter(Boolean).join('. ') || 'Nobody connected to or from it'}.${idle.length ? ` ${plural(idle.length, 'legal connection')} unused.` : ''}${miss.length ? ` ${plural(miss.length, 'near miss').replace('misss', 'misses')}, the closest ${Math.min(...miss.map(k => k.short))} min short.` : ''}${turnOf(x) ? ' <button type="button" class="plain" id="oab" style="padding:1px 8px">Show its out-and-back</button>' : ''} <span style="white-space:nowrap">Retime: ${[-15, -5, 5, 15].map(d => `<button type="button" class="plain shf" data-d="${d}" style="padding:1px 7px">${d > 0 ? '+' : '−'}${Math.abs(d)}</button>`).join(' ')}${x.sh ? ` <b style="color:var(--over)">${x.sh > 0 ? '+' : '−'}${Math.abs(x.sh)} min</b>` : ''}</span></div>${spark(x)}`;
   const ob = $('oab'); if (ob) ob.addEventListener('click', () => { turn = true; sync(); });
+  el.querySelectorAll('.shf').forEach(b => b.addEventListener('click', () => { user[x.id] = (user[x.id] || 0) + +b.dataset.d; applyShifts(); sync(); }));
 }
 function sync() {
   for (const [id, val] of [['mode', mode], ['sort', sort], ['zoom', zoom]]) [...$(id).children].forEach(b => b.setAttribute('aria-pressed', b.dataset.v === val));
   $('avg').setAttribute('aria-pressed', day < 0); $('holes').setAttribute('aria-pressed', holesOn);
   drawDays(); draw();
+  $('unshift').hidden = !anyMoved();
+  if (anyMoved()) {
+    const bk = broken(), mine = L.filter(l => user[l.id]), pushed = L.filter(l => l.sh && !user[l.id]), nm = l => `OC ${l.fn} ${l.sh > 0 ? '+' : '−'}${Math.abs(l.sh)}`;
+    let made = 0; L.forEach(a => { if (HUBS.includes(a.d)) L.forEach(b => { if (b.o === a.d && (a.sh || b.sh)) { const k = conn(a, b); if (k && !k.miss && !was(a, b)) made++; } }); });
+    $('reading').firstChild.insertAdjacentHTML('beforeend', `<br><b style="color:var(--over)">Retimed:</b> ${mine.map(nm).join(', ')}${pushed.length ? `, which pushes ${pushed.map(nm).join(', ')}` : ''}. On ${dayName(day)}, <b>${cnt(sum(bk.map(k => k.pax)))} connecting passengers</b> miss their onward flight across ${plural(bk.length, 'connection')} (solid red), and ${plural(made, 'new connection')} become possible.`);
+  }
   if (holesOn && !sel) {
     let n = 0, ap = 0, near = 0, tot = 0;
     HUBS.forEach(h => [...new Set(L.filter(l => l.o === h && !HUBS.includes(l.d)).map(l => l.d))].forEach(sp => { const r = holes(h, sp); tot++; if (r.n) ap++; n += r.n; near += [...r.noBack, ...r.noWay].filter(x => x.short != null).length; }));
@@ -2407,6 +2438,7 @@ seg('mode', x => { mode = x; if (mode === 'diff' && day < 0) day = lastDay; });
 seg('sort', x => { sort = x; });
 seg('zoom', x => { zoom = x; });
 $('holes').addEventListener('click', () => { holesOn = !holesOn; sync(); });
+$('unshift').addEventListener('click', () => { user = {}; applyShifts(); sync(); });
 $('avg').addEventListener('click', () => { day = day < 0 ? lastDay : -1; if (day < 0 && mode === 'diff') mode = 'gauge'; sync(); });
 addEventListener('keydown', ev => { if (ev.key === 'Escape' && sel) { sel = null; sync(); return; } if (ev.target.closest && ev.target.closest('input, select, textarea')) return; if (ev.key === 'ArrowRight' && day < ND - 1) { day = lastDay = Math.max(0, day + 1); sync(); } else if (ev.key === 'ArrowLeft' && day > 0) { day = lastDay = day - 1; sync(); } });
 
