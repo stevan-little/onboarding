@@ -30,7 +30,7 @@
 }
 body { background: var(--page); color: var(--ink); font-family: var(--sans); font-size: 15px; line-height: 1.55;
   padding-block: 36px 72px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
-main { max-width: 1180px; margin: 0 auto; display: flex; flex-direction: column; gap: 18px; }
+main { max-width: none; margin: 0 auto; display: flex; flex-direction: column; gap: 18px; }
 header { display: flex; flex-direction: column; gap: 10px; }
 h1 { font-size: 30px; line-height: 1.15; margin: 0; letter-spacing: -.01em; }
 h2 { font-size: 15px; line-height: 1.3; margin: 0; font-weight: 600; }
@@ -98,6 +98,7 @@ footer { font-size: 12px; color: var(--muted); max-width: 76ch; }
     <div class="seg" id="sort" role="group" aria-label="Row order"><button type="button" data-v="sched">First departure</button><button type="button" data-v="pattern">Same airports together</button><button type="button" data-v="rev">Revenue</button></div>
     <span class="l">zoom</span>
     <div class="seg" id="zoom" role="group" aria-label="Time window"><button type="button" data-v="day">Whole day</button><button type="button" data-v="am">Morning</button><button type="button" data-v="mid">Midday</button><button type="button" data-v="pm">Evening</button></div>
+    <button type="button" class="plain" id="holes">One-way holes</button>
   </div>
 </div>
 <div class="readbar"><div class="reading" id="reading"></div></div>
@@ -117,6 +118,7 @@ footer { font-size: 12px; color: var(--muted); max-width: 76ch; }
       <li><b>The orange strip is people.</b> It counts passengers who have got off one flight at the hub and not yet left on the next. The familiar chart shows aircraft meeting; this shows how many people were in between.</li>
       <li><b>Click a flight to see its connections.</b> Orange ribbons run to the flights its passengers went on to, or came from, in proportion to the number of people. Thin grey lines are legal connections nobody used. Red dashes are near misses. The tinted band is the window in which a connection is allowed.</li>
       <li><b>Click an airport code between two flights for the out-and-back.</b> It shows who the flight out collected at the hub and who the flight back delivered. Cities named in bold are on both sides: the same market in its two directions.</li>
+      <li><b>"One-way holes"</b> marks each airport that has connections working in one direction only over the whole day, with the count. Hover the airport code for the list, and for how close the missing direction comes.</li>
       <li><b>"Against its usual weekday"</b> recolours each bar by how that day compares with the same flight on the month's other three days of that weekday.</li>
     </ul>
   </div>
@@ -2127,7 +2129,7 @@ const dayName = i => i < 0 ? 'an average February day' : `${DOW[dates[i].getUTCD
 const Day = () => dayName(day)[0].toUpperCase() + dayName(day).slice(1);
 
 /* ---------- state ---------- */
-let day = 11, lastDay = 11, mode = 'gauge', sort = 'sched', sel = null, turn = false, zoom = 'day';
+let day = 11, lastDay = 11, mode = 'gauge', sort = 'sched', sel = null, turn = false, holesOn = false, zoom = 'day';
 const ZOOM = { day: [300, 1575], am: [300, 750], mid: [660, 1110], pm: [1020, 1575] };
 const v = arr => day < 0 ? sum(arr) / ND : arr[day];
 const usual = l => { const w = dates[day].getUTCDay(), o = l.pax.filter((_, i) => i !== day && dates[i].getUTCDay() === w); return sum(o) / o.length; };
@@ -2172,6 +2174,19 @@ function turnLinks([A, B]) {                               // who fed the flight
   ls.forEach(k => { k.match = k.onward ? ci.has(k.b.d) : co.has(k.a.o); });
   return ls;
 }
+const holeCache = {};
+function holes(h, S) {                                     // schedule only, whole day; with the closest near miss that would close each one
+  if (holeCache[h + S]) return holeCache[h + S];
+  const ci = new Set(), co = new Set(), nIn = {}, nOut = {}, low = (o, c, x) => { o[c] = Math.min(o[c] == null ? 99 : o[c], x); };
+  L.forEach(o => {
+    if (o.o === h && o.d === S) L.forEach(y => { const k = conn(y, o); if (k) { if (k.miss) low(nIn, y.o, k.short); else ci.add(y.o); } });
+    if (o.o === S && o.d === h) L.forEach(y => { const k = conn(o, y); if (k) { if (k.miss) low(nOut, y.d, k.short); else co.add(y.d); } });
+  });
+  const r = { noBack: [...ci].filter(c => !co.has(c)).map(c => ({ c, short: nOut[c] })), noWay: [...co].filter(c => !ci.has(c)).map(c => ({ c, short: nIn[c] })) };
+  r.n = r.noBack.length + r.noWay.length; return (holeCache[h + S] = r);
+}
+const holeList = a => a.map(x => x.c + (x.short != null ? ` <span class="k">(misses by ${x.short} min)</span>` : '')).join(', ');
+const holeText = (h, S) => { const r = holes(h, S); return (r.noBack.length ? `<br>You can reach ${S} from ${holeList(r.noBack)}, but not get back.` : '') + (r.noWay.length ? `<br>You can leave ${S} for ${holeList(r.noWay)}, but not come from there.` : ''); };
 function dayMirror(hin, S, hout) {                         // over the whole day: cities that can reach S, and cities S can reach
   const ci = new Set(), co = new Set();
   L.forEach(o => { if (o.o === hin && o.d === S) L.forEach(y => { const k = conn(y, o); if (k && !k.miss) ci.add(y.o); }); if (o.o === S && o.d === hout) L.forEach(y => { const k = conn(o, y); if (k && !k.miss) co.add(y.d); }); });
@@ -2180,7 +2195,7 @@ function dayMirror(hin, S, hout) {                         // over the whole day
 }
 
 /* ---------- geometry ---------- */
-const W = 1120, ML = 122, MR = 120, PW = W - ML - MR, T0 = 300, T1 = 1575, STEP = 5, NG = (T1 - T0) / STEP;
+let W = 1120, PW = 878; const ML = 122, MR = 120, T0 = 300, T1 = 1575, STEP = 5, NG = (T1 - T0) / STEP;
 let V0 = T0, V1 = T1;
 const tx = t => ML + (Math.min(Math.max(t, V0), V1) - V0) / (V1 - V0) * PW;
 const vis = (a, b) => b > V0 && a < V1;
@@ -2229,6 +2244,7 @@ function bar(l, y, g, hot) {
 }
 function draw() {
   clear(svg); strips = []; rowY = {}; box = {}; [V0, V1] = ZOOM[zoom];
+  W = Math.max(980, Math.floor(svg.parentNode.clientWidth || 1120)); PW = W - ML - MR;
   const wait = waiting(), plain = mode === 'plain', zoomed = zoom !== 'day';
   const order = h => { const rows = AC.filter(a => a.hub === h); if (sort === 'rev') rows.sort((a, b) => acVal(b, 'rev') - acVal(a, 'rev')); else if (sort === 'pattern') rows.sort((a, b) => a.key.localeCompare(b.key) || a.legs[0].dep - b.legs[0].dep); return rows; };
   const gGrid = S('g', {}, svg), gRows = S('g', {}, svg);
@@ -2255,8 +2271,10 @@ function draw() {
         if (nx && nx.o === l.d && vis(l.arr, nx.dep)) {
           const x0 = tx(l.arr), x1 = tx(nx.dep), isHub = HUBS.includes(l.d), own = l.d === a.hub, turn = nx.dep - l.arr;
           if (isHub) S('rect', { x: x0 + 1, y: yb - BH, width: Math.max(0, x1 - x0 - 2), height: BH, fill: 'var(--hubgap)' }, gRows);
-          const txt = zoomed ? (own ? `${turn}′` : `${l.d} ${turn}′`) : (own ? '' : l.d);
-          if (txt && x1 - x0 > txt.length * 5.6 + 2 && l.arr >= V0 && nx.dep <= V1) S('text', { x: (x0 + x1) / 2, y: yt, 'text-anchor': 'middle', class: 'code' + (isHub && !own ? ' strong' : '') }, gRows, txt);
+          const hn = holesOn && !isHub ? holes(l.o, l.d).n : 0;
+          if (hn) S('rect', { x: x0 + 1, y: yb - BH, width: Math.max(0, x1 - x0 - 2), height: BH, rx: 2, fill: 'var(--over)', opacity: .16 }, gRows);
+          const txt = hn ? `${l.d} ${hn}` : zoomed ? (own ? `${turn}′` : `${l.d} ${turn}′`) : (own ? '' : l.d);
+          if (txt && x1 - x0 > txt.length * 5.6 + 2 && l.arr >= V0 && nx.dep <= V1) S('text', { x: (x0 + x1) / 2, y: yt, 'text-anchor': 'middle', class: 'code' + (isHub && !own ? ' strong' : ''), style: hn ? 'fill:var(--over);font-weight:700' : '' }, gRows, txt);
         }
         if (i === 0 && l.dep >= V0 && l.dep <= V1) S('text', { x: tx(l.dep) - 4, y: yt, 'text-anchor': 'end', class: 'code' }, gRows, l.o);
         if (!nx && l.arr <= V1 && l.arr >= V0) S('text', { x: tx(l.arr) + 4, y: yt, class: 'code' }, gRows, l.d);
@@ -2315,7 +2333,7 @@ function draw() {
   AC.forEach(a => a.legs.forEach((l, i) => {
     const nx = a.legs[i + 1]; if (!nx || nx.o !== l.d || l.d === a.hub || !vis(l.arr, nx.dep)) return;
     const x0 = tx(l.arr), g = S('rect', { x: x0, y: rowY[l.id] + 1, width: Math.max(4, tx(nx.dep) - x0), height: RH - 3, fill: 'transparent', class: 'hit' }, svg);
-    g.addEventListener('mousemove', ev => { move(ev); showTip(ev, `<b>${l.d}</b> ${D.airports[l.d].city}<br>${nx.dep - l.arr} min on the ground between OC ${l.fn} and OC ${nx.fn}<br><span class="k">click for the out-and-back</span>`); });
+    g.addEventListener('mousemove', ev => { move(ev); showTip(ev, `<b>${l.d}</b> ${D.airports[l.d].city}<br>${nx.dep - l.arr} min on the ground between OC ${l.fn} and OC ${nx.fn}` + (HUBS.includes(l.d) ? '' : holeText(l.o, l.d) || '<br>Every city it connects to works in both directions.') + `<br><span class="k">click for the out-and-back</span>`); });
     g.addEventListener('mouseleave', () => { tip.hidden = true; cur.setAttribute('visibility', 'hidden'); });
     g.addEventListener('click', () => { const same = turn && sel === l.id; sel = same ? null : l.id; turn = !same; tip.hidden = true; sync(); });
   }));
@@ -2343,7 +2361,7 @@ function legend() {
   const sw = (css, t) => `<span><i class="sw" style="${css}"></i>${t}</span>`, hubgap = sw('background:var(--hubgap);outline:1px solid var(--axis)', 'on the ground at its hub');
   $('legend').innerHTML = (mode === 'gauge' ? sw('background:var(--surface);outline:1px solid var(--muted)', 'seats on the aircraft') + sw('background:var(--local)', 'sold, local') + sw('background:var(--flow)', 'sold, connecting') + sw('background:var(--ink);height:4px', 'seat requests it could not take (doubled: over 50)')
     : mode === 'diff' ? `<span>seats sold against the same flight's other ${day < 0 ? 'days' : DOW[dates[day].getUTCDay()] + 's'}:</span>` + [['dn3', '30+ points emptier'], ['dn2', '15–30'], ['dn1', '5–15'], ['surface);outline:1px solid var(--muted', 'within 5'], ['dp1', '5–15'], ['dp2', '15–30'], ['dp3', '30+ points fuller']].map(([c, t]) => sw(`background:var(--${c})`, t)).join('') + sw('background:linear-gradient(90deg,var(--local) 50%,var(--flow) 50%)', 'strip and margin: local, connecting')
-    : sw('background:var(--ink-2)', '114-seat 737-700') + sw('background:var(--muted);height:5px', '64-seat E175')) + hubgap
+    : sw('background:var(--ink-2)', '114-seat 737-700') + sw('background:var(--muted);height:5px', '64-seat E175')) + hubgap + (holesOn ? sw('background:var(--over);opacity:.5', 'airport with one-way connections, and how many') : '')
     + (sel ? `<span><svg width="22" height="8" style="width:22px"><line x1="0" y1="4" x2="22" y2="4" stroke="var(--flow)" stroke-width="4"/></svg>passengers connecting</span><span><svg width="22" height="8" style="width:22px"><line x1="0" y1="4" x2="22" y2="4" stroke="var(--over)" stroke-width="1.4" stroke-dasharray="3 3"/></svg>near miss</span>` + (turn && turnOf(byId[sel]) ? `<span><b style="color:var(--ink)">BOS</b>&nbsp;city on both sides of this out-and-back</span>` : '') : '');
 }
 function spark(l) {
@@ -2376,13 +2394,19 @@ function reading() {
 }
 function sync() {
   for (const [id, val] of [['mode', mode], ['sort', sort], ['zoom', zoom]]) [...$(id).children].forEach(b => b.setAttribute('aria-pressed', b.dataset.v === val));
-  $('avg').setAttribute('aria-pressed', day < 0);
+  $('avg').setAttribute('aria-pressed', day < 0); $('holes').setAttribute('aria-pressed', holesOn);
   drawDays(); draw();
+  if (holesOn && !sel) {
+    let n = 0, ap = 0, near = 0, tot = 0;
+    HUBS.forEach(h => [...new Set(L.filter(l => l.o === h && !HUBS.includes(l.d)).map(l => l.d))].forEach(sp => { const r = holes(h, sp); tot++; if (r.n) ap++; n += r.n; near += [...r.noBack, ...r.noWay].filter(x => x.short != null).length; }));
+    $('reading').firstChild.insertAdjacentHTML('beforeend', ` <b>One-way holes:</b> ${n} connections work in one direction only, at ${ap} of ${tot} airport and hub pairings (marked in red with their count). For ${near} of them a connection in the missing direction exists but falls short of the minimum connecting time; hover an airport code to see by how much.`);
+  }
 }
 const seg = (id, f) => [...$(id).children].forEach(b => b.addEventListener('click', () => { f(b.dataset.v); sync(); }));
 seg('mode', x => { mode = x; if (mode === 'diff' && day < 0) day = lastDay; });
 seg('sort', x => { sort = x; });
 seg('zoom', x => { zoom = x; });
+$('holes').addEventListener('click', () => { holesOn = !holesOn; sync(); });
 $('avg').addEventListener('click', () => { day = day < 0 ? lastDay : -1; if (day < 0 && mode === 'diff') mode = 'gauge'; sync(); });
 addEventListener('keydown', ev => { if (ev.key === 'Escape' && sel) { sel = null; sync(); return; } if (ev.target.closest && ev.target.closest('input, select, textarea')) return; if (ev.key === 'ArrowRight' && day < ND - 1) { day = lastDay = Math.max(0, day + 1); sync(); } else if (ev.key === 'ArrowLeft' && day > 0) { day = lastDay = day - 1; sync(); } });
 
@@ -2410,6 +2434,7 @@ addEventListener('keydown', ev => { if (ev.key === 'Escape' && sel) { sel = null
   $('findings').innerHTML = out.map(t => `<li>${t}</li>`).join('');
   day = save;
 })();
+let rz = 0; addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(() => { if (Math.abs((svg.parentNode.clientWidth || W) - W) > 8) draw(); }, 150); });
 sync();
 }
 })();
