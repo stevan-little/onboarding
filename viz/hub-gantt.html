@@ -102,10 +102,12 @@ footer { font-size: 12px; color: var(--muted); max-width: 76ch; }
     <span class="l">zoom</span>
     <div class="seg" id="zoom" role="group" aria-label="Time window"><button type="button" data-v="day">Whole day</button><button type="button" data-v="am">Morning</button><button type="button" data-v="mid">Midday</button><button type="button" data-v="pm">Evening</button></div>
     <button type="button" class="plain" id="holes">One-way holes</button>
+    <button type="button" class="plain" id="loadStudy">Load example study</button>
     <button type="button" class="plain" id="unshift">Put all flights back</button>
   </div>
 </div>
 <div class="readbar"><div class="reading" id="reading"></div></div>
+<div class="card" id="study" hidden></div>
 
 <figure>
   <div class="legend" id="legend"></div>
@@ -2231,11 +2233,25 @@ const grid = () => new Float64Array(NG);
 const fill = (g, t0, t1, w) => { const a = Math.max(0, Math.round((t0 - T0) / STEP)), b = Math.min(NG, Math.round((t1 - T0) / STEP)); for (let k = a; k < b; k++) g[k] += w; };
 const ground = {}; const setGround = () => HUBS.forEach(h => { const g = ground[h] = grid(); AC.forEach(a => { a.legs.forEach((l, i) => { const nx = a.legs[i + 1]; if (nx && l.d === h && nx.o === h) fill(g, l.arr, nx.dep, 1); }); if (a.legs[0].o === h) fill(g, T0, a.legs[0].dep, 1); const z = a.legs[a.legs.length - 1]; if (z.d === h) fill(g, z.arr, T1, 1); }); }); setGround();
 function waiting() { const w = {}; HUBS.forEach(h => { w[h] = grid(); }); pairs.forEach(p => { if (w[p.a.d]) fill(w[p.a.d], p.a.arr, p.b.dep, v(p.vals)); }); return w; }
+const ground0 = Object.fromEntries(HUBS.map(h => [h, ground[h].slice()]));
+function waiting0() { const w = {}; HUBS.forEach(h => { w[h] = grid(); }); pairs.forEach(p => { if (w[p.a.d]) fill(w[p.a.d], p.a.arr0, p.b.dep0, v(p.vals)); }); return w; }
+let study = null;
+function effect() {                                        // schedule-only: connections the current times make and lose against the original
+  let made = 0, lost = 0; L.forEach(a => { if (!HUBS.includes(a.d)) return; L.forEach(b => { if (b.o !== a.d || !(a.sh || b.sh)) return; const k = conn(a, b), now = !!k && !k.miss, w = was(a, b); if (now && !w) made++; else if (w && !now) lost++; }); }); return [made, lost];
+}
+function exampleStudy() {                                  // greedy: delay departures by up to 15 min where that turns near misses into connections
+  user = {}; applyShifts(); const need = {};
+  L.forEach(b => { if (HUBS.includes(b.o)) L.forEach(a => { const k = conn(a, b); if (k && k.miss && k.short <= 15) need[b.id] = Math.max(need[b.id] || 0, Math.ceil(k.short / 5) * 5); }); });
+  const alone = Object.entries(need).map(([id, sh]) => { user = { [id]: sh }; applyShifts(); const [m, l] = effect(); return { id: +id, sh, made: m, lost: l }; }).filter(c => c.made > c.lost).sort((p, q) => (q.made - q.lost) - (p.made - p.lost));
+  user = {}; let total = 0; const moves = [], seen = new Set();
+  for (const c of alone) { const ac = byId[c.id].ac_.n; if (seen.has(ac) || moves.length >= 15) continue; user[c.id] = c.sh; applyShifts(); const [m, l] = effect(); if (m - l > total) { total = m - l; moves.push(c); seen.add(ac); } else delete user[c.id]; }
+  applyShifts(); study = { moves };
+}
 const peak = g => { let m = 0, k = 0; g.forEach((x, i) => { if (x > m) { m = x; k = i; } }); return [m, T0 + k * STEP]; };
 
 /* ---------- drawing ---------- */
 let strips = [], rowY = {}, box = {}, plotTop = 0, plotBot = 0;
-function strip(name, y, g, attrs) {
+function strip(name, y, g, attrs, g0) {
   const max = Math.max(...g) * 1.08 || 1, k0 = Math.max(0, Math.floor((V0 - T0) / STEP)), k1 = Math.min(NG, Math.ceil((V1 - T0) / STEP));
   let d = `M${tx(T0 + k0 * STEP)},${y + SH}`;
   for (let k = k0; k < k1; k++) { const yy = (y + SH - g[k] / max * SH).toFixed(1); d += `L${tx(T0 + k * STEP).toFixed(1)},${yy}L${tx(T0 + (k + 1) * STEP).toFixed(1)},${yy}`; }
@@ -2243,6 +2259,7 @@ function strip(name, y, g, attrs) {
   S('line', { x1: ML, x2: W - MR, y1: y + SH, y2: y + SH, stroke: 'var(--axis)' }, svg);
   S('text', { x: ML - 8, y: y + SH - 10, 'text-anchor': 'end', class: 'ink2' }, svg, name[0]); S('text', { x: ML - 8, y: y + SH + 1, 'text-anchor': 'end' }, svg, name[1]);
   const [m, at] = peak(g); S('text', { x: W - MR + 8, y: y + 11, class: 'ink2' }, svg, `day's peak ${num(m)}`); S('text', { x: W - MR + 8, y: y + 23 }, svg, `at ${clock(at)}`);
+  if (g0) { let d0 = ''; for (let k = k0; k < k1; k++) { const yy = (y + SH - Math.min(1.1, g0[k] / max) * SH).toFixed(1); d0 += `${k === k0 ? 'M' : 'L'}${tx(T0 + k * STEP).toFixed(1)},${yy}L${tx(T0 + (k + 1) * STEP).toFixed(1)},${yy}`; } S('path', { d: d0, fill: 'none', stroke: 'var(--ink)', 'stroke-width': 1.1, 'stroke-dasharray': '3 2' }, svg); }
   strips.push({ y, g });
 }
 function ticks(y, into) {
@@ -2273,7 +2290,7 @@ function draw() {
   clear(svg); strips = []; rowY = {}; box = {}; [V0, V1] = ZOOM[zoom];
   W = Math.max(980, Math.floor(svg.parentNode.clientWidth || 1120)); PW = W - ML - MR;
   hurt = new Set(); if (anyMoved()) broken().forEach(k => { hurt.add(k.a.id); hurt.add(k.b.id); });
-  const wait = waiting(), plain = mode === 'plain', zoomed = zoom !== 'day';
+  const wait = waiting(), wait0 = anyMoved() ? waiting0() : null, plain = mode === 'plain', zoomed = zoom !== 'day';
   const order = h => { const rows = AC.filter(a => a.hub === h); if (sort === 'rev') rows.sort((a, b) => acVal(b, 'rev') - acVal(a, 'rev')); else if (sort === 'pattern') rows.sort((a, b) => a.key.localeCompare(b.key) || a.legs[0].dep - b.legs[0].dep); return rows; };
   const gGrid = S('g', {}, svg), gRows = S('g', {}, svg);
   const maxPax = Math.max(...AC.map(a => acVal(a, 'pax')));
@@ -2283,8 +2300,8 @@ function draw() {
     const hd = S('text', { x: 0, y: y + 14, class: 'strong', 'font-size': 13 }, svg, `${HUB_NAME[h]} hub`); S('text', { x: 66 + (h === 'GSO' ? 8 : 0), y: y + 14 }, svg, '');
     S('tspan', { dx: 8, style: 'font-weight:400;fill:var(--muted);font-size:11px' }, hd, `${rows.length} aircraft`);
     y += 22;
-    strip(['aircraft on', `ground at ${h}`], y, ground[h], { fill: 'var(--ink-2)', opacity: .55 }); y += SH + 10;
-    if (!plain) { strip(['passengers', 'between flights'], y, wait[h], { fill: 'var(--flow)', opacity: .85 }); y += SH + 10; }
+    strip(['aircraft on', `ground at ${h}`], y, ground[h], { fill: 'var(--ink-2)', opacity: .55 }, anyMoved() ? ground0[h] : null); y += SH + 10;
+    if (!plain) { strip(['passengers', 'between flights'], y, wait[h], { fill: 'var(--flow)', opacity: .85 }, anyMoved() ? wait0[h] : null); y += SH + 10; }
     ticks(y + 9); S('text', { x: W - MR + 8, y: y + 9 }, svg, 'in air'); if (!plain) { S('text', { x: W - MR + 44, y: y + 9 }, svg, 'pax'); S('text', { x: W - 2, y: y + 9, 'text-anchor': 'end' }, svg, 'booked'); }
     y += 14;
     if (sort === 'pattern') rows.forEach((a, i) => { if (i && rows[i - 1].key === a.key) S('path', { d: `M5,${y + (i - 1) * RH + 18}h-4v${RH}h4`, fill: 'none', stroke: 'var(--ink-2)', 'stroke-width': 1.2 }, svg); });
@@ -2446,6 +2463,13 @@ function sync() {
     let made = 0; L.forEach(a => { if (HUBS.includes(a.d)) L.forEach(b => { if (b.o === a.d && (a.sh || b.sh)) { const k = conn(a, b); if (k && !k.miss && !was(a, b)) made++; } }); });
     $('reading').firstChild.insertAdjacentHTML('beforeend', `<br><b style="color:var(--over)">Retimed:</b> ${mine.map(nm).join(', ')}${pushed.length ? `, which pushes ${pushed.map(nm).join(', ')}` : ''}. On ${dayName(day)}, <b>${cnt(sum(bk.map(k => k.pax)))} connecting passengers</b> miss their onward flight across ${plural(bk.length, 'connection')} (lime green), and ${plural(made, 'new connection')} become possible.`);
   }
+  const sc = $('study'); sc.hidden = !study;
+  if (study) {
+    const [made, lost] = effect(), bk = broken(), pushed = L.filter(l => l.sh && !user[l.id]), w0 = waiting0(), w1 = waiting(), tot = g => sum(HUBS.map(h => sum([...g[h]]))) * STEP;
+    sc.innerHTML = `<h2>Study diff: ${study.moves.length} retimes of up to 15 minutes <span style="font-weight:400;color:var(--muted)">(an example built in this page, standing in for a schedule optimizer result)</span></h2>
+      <div class="reading" style="min-height:0"><div>The schedule gains <b>${made} connections</b> and loses <b>${lost}</b>. ${pushed.length} other flight${pushed.length === 1 ? ' is' : 's are'} pushed by the knock-on. On ${dayName(day)}, <b>${cnt(sum(bk.map(k => k.pax)))} passengers</b> who booked the old schedule would miss their onward flight (drawn in green lines; nobody rebooks here), and total time spent between flights changes from ${num(tot(w0) / 60)} to ${num(tot(w1) / 60)} passenger-hours. On the strips, the dashed line is before the study and the filled shape is after. Click a row to see that flight on the chart.</div></div>
+      <div style="display:grid;grid-template-columns:auto auto auto 1fr;gap:4px 16px;align-items:center;font:12px var(--mono);color:var(--ink-2)">` + '<span style="color:var(--muted)">flight</span><span style="color:var(--muted)">moved</span><span style="color:var(--muted)">on its own</span><span style="color:var(--muted)">aircraft</span>' + study.moves.map(c => { const l = byId[c.id]; return `<span data-f="${c.id}" style="cursor:pointer;text-decoration:underline">OC ${l.fn} ${l.o}→${l.d} ${clock(l.dep0)}</span><span>+${c.sh} min</span><span><b style="color:var(--c-good)">+${c.made}</b> / <b style="color:var(--over)">−${c.lost}</b></span><span>${String(l.ac_.n).padStart(2, '0')} ${l.ac_.label}</span>`; }).join('') + '</div>';
+  }
   if (holesOn && !sel) {
     let n = 0, ap = 0, near = 0, tot = 0;
     HUBS.forEach(h => [...new Set(L.filter(l => l.o === h && !HUBS.includes(l.d)).map(l => l.d))].forEach(sp => { const r = holes(h, sp); tot++; if (r.n) ap++; n += r.n; near += [...r.noBack, ...r.noWay].filter(x => x.short != null).length; }));
@@ -2457,7 +2481,9 @@ seg('mode', x => { mode = x; if (mode === 'diff' && day < 0) day = lastDay; });
 seg('sort', x => { sort = x; });
 seg('zoom', x => { zoom = x; });
 $('holes').addEventListener('click', () => { holesOn = !holesOn; sync(); });
-$('unshift').addEventListener('click', () => { user = {}; applyShifts(); sync(); });
+$('unshift').addEventListener('click', () => { user = {}; study = null; applyShifts(); sync(); });
+$('loadStudy').addEventListener('click', () => { exampleStudy(); sel = null; sync(); });
+$('study').addEventListener('click', ev => { const r = ev.target.closest('[data-f]'); if (r) { sel = +r.dataset.f; turn = false; sync(); } });
 $('avg').addEventListener('click', () => { day = day < 0 ? lastDay : -1; if (day < 0 && mode === 'diff') mode = 'gauge'; sync(); });
 addEventListener('keydown', ev => { if (ev.key === 'Escape' && sel) { sel = null; sync(); return; } if (ev.target.closest && ev.target.closest('input, select, textarea')) return; if (ev.key === 'ArrowRight' && day < ND - 1) { day = lastDay = Math.max(0, day + 1); sync(); } else if (ev.key === 'ArrowLeft' && day > 0) { day = lastDay = day - 1; sync(); } });
 
