@@ -116,6 +116,7 @@ footer { font-size: 12px; color: var(--muted); max-width: 76ch; }
       <li><b>A shaded gap is an aircraft on the ground at its hub.</b> Where shaded gaps line up down the page, many aircraft are at the hub together. That is a bank, and the grey strip above each hub is those gaps counted.</li>
       <li><b>The orange strip is people.</b> It counts passengers who have got off one flight at the hub and not yet left on the next. The familiar chart shows aircraft meeting; this shows how many people were in between.</li>
       <li><b>Click a flight to see its connections.</b> Orange ribbons run to the flights its passengers went on to, or came from, in proportion to the number of people. Thin grey lines are legal connections nobody used. Red dashes are near misses. The tinted band is the window in which a connection is allowed.</li>
+      <li><b>Click an airport code between two flights for the out-and-back.</b> It shows who the flight out collected at the hub and who the flight back delivered. Cities named in bold are on both sides: the same market in its two directions.</li>
       <li><b>"Against its usual weekday"</b> recolours each bar by how that day compares with the same flight on the month's other three days of that weekday.</li>
     </ul>
   </div>
@@ -2126,7 +2127,7 @@ const dayName = i => i < 0 ? 'an average February day' : `${DOW[dates[i].getUTCD
 const Day = () => dayName(day)[0].toUpperCase() + dayName(day).slice(1);
 
 /* ---------- state ---------- */
-let day = 11, lastDay = 11, mode = 'gauge', sort = 'sched', sel = null, zoom = 'day';
+let day = 11, lastDay = 11, mode = 'gauge', sort = 'sched', sel = null, turn = false, zoom = 'day';
 const ZOOM = { day: [300, 1575], am: [300, 750], mid: [660, 1110], pm: [1020, 1575] };
 const v = arr => day < 0 ? sum(arr) / ND : arr[day];
 const usual = l => { const w = dates[day].getUTCDay(), o = l.pax.filter((_, i) => i !== day && dates[i].getUTCDay() === w); return sum(o) / o.length; };
@@ -2148,16 +2149,34 @@ const acVal = (a, k) => sum(a.legs.map(l => v(l[k])));
 /* ---------- connections ---------- */
 const pairs = D.pairs.map(([a, b, vals]) => ({ a: byId[a], b: byId[b], vals }));
 const pairKey = {}; pairs.forEach(p => { pairKey[p.a.id + '>' + p.b.id] = p; });
+function conn(a, b) {                                      // can a passenger step from flight a to flight b?
+  if (a === b || a.d !== b.o || b.d === a.o) return null; const hub = a.d, gap = b.dep - a.arr; if (gap < 0 || gap > 240) return null;
+  if (miles(a.o, hub) + miles(hub, b.d) > 1.5 * miles(a.o, b.d)) return null;
+  const mct = (intl(a.o) || intl(hub) || intl(b.d)) ? 60 : 35, p = pairKey[a.id + '>' + b.id];
+  return { a, b, gap, miss: gap < mct, short: mct - gap, pax: p ? v(p.vals) : 0 };
+}
 function links(x) {                                        // every flight x could hand passengers to, or take them from
   const out = [];
-  const consider = (a, b) => {
-    if (b.d === a.o) return; const hub = a.d, gap = b.dep - a.arr; if (gap < 0 || gap > 240) return;
-    if (miles(a.o, hub) + miles(hub, b.d) > 1.5 * miles(a.o, b.d)) return;
-    const mct = (intl(a.o) || intl(hub) || intl(b.d)) ? 60 : 35, p = pairKey[a.id + '>' + b.id];
-    out.push({ a, b, gap, miss: gap < mct, short: mct - gap, pax: p ? v(p.vals) : 0, other: a === x ? b : a, onward: a === x });
-  };
-  L.forEach(y => { if (y === x) return; if (y.o === x.d) consider(x, y); if (y.d === x.o) consider(y, x); });
+  L.forEach(y => { const k = conn(x, y), j = conn(y, x); if (k) out.push({ ...k, other: y, onward: true }); if (j) out.push({ ...j, other: y, onward: false }); });
   return out;
+}
+function turnOf(x) {                                       // the out-and-back x belongs to: [flight out to an airport, flight back from it]
+  const legs = x.ac_.legs, nx = legs[x.k_ + 1], pv = legs[x.k_ - 1];
+  if (x.d !== x.ac_.hub) return nx && nx.o === x.d ? [x, nx] : null;
+  return pv && pv.d === x.o && x.o !== x.ac_.hub ? [pv, x] : null;
+}
+function turnLinks([A, B]) {                               // who fed the flight out, and who the flight back fed
+  const ls = [];
+  L.forEach(y => { const k = conn(y, A), j = conn(B, y); if (k) ls.push({ ...k, other: y, onward: false }); if (j) ls.push({ ...j, other: y, onward: true }); });
+  const ci = new Set(ls.filter(k => !k.onward && !k.miss).map(k => k.a.o)), co = new Set(ls.filter(k => k.onward && !k.miss).map(k => k.b.d));
+  ls.forEach(k => { k.match = k.onward ? ci.has(k.b.d) : co.has(k.a.o); });
+  return ls;
+}
+function dayMirror(hin, S, hout) {                         // over the whole day: cities that can reach S, and cities S can reach
+  const ci = new Set(), co = new Set();
+  L.forEach(o => { if (o.o === hin && o.d === S) L.forEach(y => { const k = conn(y, o); if (k && !k.miss) ci.add(y.o); }); if (o.o === S && o.d === hout) L.forEach(y => { const k = conn(o, y); if (k && !k.miss) co.add(y.d); }); });
+  const both = [...ci].filter(c => co.has(c));
+  return { nin: ci.size, nout: co.size, both: both.length, one: [...[...ci].filter(c => !co.has(c)).map(c => c + ' in only'), ...[...co].filter(c => !ci.has(c)).map(c => c + ' out only')] };
 }
 
 /* ---------- geometry ---------- */
@@ -2259,19 +2278,20 @@ function draw() {
   /* selection: veil, window, ribbons, partners */
   const top = S('g', {}, svg);
   if (sel) {
-    const x = byId[sel], ls = links(x), m = intl(x.o) || intl(x.d) ? 60 : 35; if (plain) ls.forEach(k => { k.pax = 0; });
+    const x = byId[sel], tp = turn ? turnOf(x) : null, ls = tp ? turnLinks(tp) : links(x), m = intl(x.o) || intl(x.d) ? 60 : 35; if (plain) ls.forEach(k => { k.pax = 0; });
     S('rect', { x: ML, y: plotTop, width: PW, height: plotBot - plotTop, fill: 'var(--surface)', opacity: .72 }, top);
     const band = (h, a, b, col, op) => { if (box[h] && vis(a, b)) S('rect', { x: tx(a), y: box[h].y0, width: tx(b) - tx(a), height: box[h].y1 - box[h].y0, fill: col, opacity: op }, top); };
-    band(x.d, x.arr, x.arr + m, 'var(--over)', .11); band(x.d, x.arr + m, x.arr + 240, 'var(--flow)', .08);
-    band(x.o, x.dep - m, x.dep, 'var(--over)', .11); band(x.o, x.dep - 240, x.dep - m, 'var(--local)', .08);
+    const fo = tp ? tp[0] : x, fb = tp ? tp[1] : x;
+    band(fb.d, fb.arr, fb.arr + m, 'var(--over)', .11); band(fb.d, fb.arr + m, fb.arr + 240, 'var(--flow)', .08);
+    band(fo.o, fo.dep - m, fo.dep, 'var(--over)', .11); band(fo.o, fo.dep - 240, fo.dep - m, 'var(--local)', .08);
     const mid = id => rowY[id] + RH - 4 - BH / 2, curve = k => { const xa = tx(k.a.arr), ya = mid(k.a.id), xb = tx(k.b.dep), yb = mid(k.b.id), dx = Math.max(14, (xb - xa) / 2); return `M${xa},${ya}C${xa + dx},${ya} ${xb - dx},${yb} ${xb},${yb}`; };
     ls.filter(k => vis(k.a.arr, k.b.dep)).sort((p, q) => p.pax - q.pax).forEach(k => {
       if (k.miss) S('path', { d: curve(k), fill: 'none', stroke: 'var(--over)', 'stroke-width': 1.3, 'stroke-dasharray': '3 3' }, top);
       else if (k.pax <= 0) S('path', { d: curve(k), fill: 'none', stroke: 'var(--muted)', 'stroke-width': .8, opacity: .8 }, top);
       else S('path', { d: curve(k), fill: 'none', stroke: 'var(--flow)', 'stroke-width': Math.max(1, k.pax * .22), 'stroke-linecap': 'butt', opacity: .8 }, top);
     });
-    ls.forEach(k => { const o = k.other; if (!vis(o.dep, o.arr)) return; bar(o, rowY[o.id], top, false); const lab = k.miss ? `${k.onward ? o.d : o.o} ${k.short}′ short` : `${k.onward ? o.d : o.o}${k.pax > 0 ? ' ' + cnt(k.pax) : ''}`; S('text', { x: k.onward ? tx(o.dep) + 2 : tx(o.arr) - 2, y: rowY[o.id] + RH - 4 - o.seats * PXS - 3, 'text-anchor': k.onward ? 'start' : 'end', class: 'halo ' + (k.pax > 0 ? 'strong' : 'ink2'), 'font-size': 9.5, style: k.miss ? 'fill:var(--over)' : '' }, top, lab); });
-    bar(x, rowY[x.id], top, true);
+    ls.forEach(k => { const o = k.other; if (!vis(o.dep, o.arr)) return; bar(o, rowY[o.id], top, false); const lab = k.miss ? `${k.onward ? o.d : o.o} ${k.short}′ short` : `${k.onward ? o.d : o.o}${k.pax > 0 ? ' ' + cnt(k.pax) : ''}`; S('text', { x: k.onward ? tx(o.dep) + 2 : tx(o.arr) - 2, y: rowY[o.id] + RH - 4 - o.seats * PXS - 3, 'text-anchor': k.onward ? 'start' : 'end', class: 'halo ' + ((tp ? k.match : k.pax > 0) ? 'strong' : 'ink2'), 'font-size': 9.5, style: k.miss ? 'fill:var(--over)' : '' }, top, lab); });
+    (tp || [x]).forEach(f => bar(f, rowY[f.id], top, true));
   }
   /* pointer layer */
   const cur = S('g', { 'pointer-events': 'none', visibility: 'hidden' }, svg);
@@ -2290,8 +2310,15 @@ function draw() {
     hit.addEventListener('mousemove', ev => { move(ev); const p = v(l.pax), f = v(l.flow), r = v(l.ref), nx = l.ac_.legs[l.k_ + 1];
       showTip(ev, `<b class="mono">OC ${l.fn} ${l.o} → ${l.d}</b> <span class="k">${clock(l.dep)}–${clock(l.arr)}</span>` + (plain ? '' : `<br>${cnt(p)} of ${l.seats} seats sold (${pct(p / l.seats)})<br>${cnt(p - f)} local · ${cnt(f)} connecting${r >= .05 ? `<br><b>${plural(r, 'request')}</b> it could not seat` : ''}<br>$${num(v(l.rev))} booked` + (mode === 'diff' ? `<br>its other ${DOW[dates[day].getUTCDay()]}s averaged ${cnt(usual(l))} sold` : '')) + (nx ? `<br>then ${nx.dep - l.arr} min on the ground at ${l.d}` : '') + `<br><span class="k">${plain ? '' : dayName(day) + ' · '}click for connections</span>`); });
     hit.addEventListener('mouseleave', () => { tip.hidden = true; cur.setAttribute('visibility', 'hidden'); });
-    hit.addEventListener('click', () => { sel = sel === l.id ? null : l.id; tip.hidden = true; sync(); });
+    hit.addEventListener('click', () => { sel = sel === l.id && !turn ? null : l.id; turn = false; tip.hidden = true; sync(); });
   });
+  AC.forEach(a => a.legs.forEach((l, i) => {
+    const nx = a.legs[i + 1]; if (!nx || nx.o !== l.d || l.d === a.hub || !vis(l.arr, nx.dep)) return;
+    const x0 = tx(l.arr), g = S('rect', { x: x0, y: rowY[l.id] + 1, width: Math.max(4, tx(nx.dep) - x0), height: RH - 3, fill: 'transparent', class: 'hit' }, svg);
+    g.addEventListener('mousemove', ev => { move(ev); showTip(ev, `<b>${l.d}</b> ${D.airports[l.d].city}<br>${nx.dep - l.arr} min on the ground between OC ${l.fn} and OC ${nx.fn}<br><span class="k">click for the out-and-back</span>`); });
+    g.addEventListener('mouseleave', () => { tip.hidden = true; cur.setAttribute('visibility', 'hidden'); });
+    g.addEventListener('click', () => { const same = turn && sel === l.id; sel = same ? null : l.id; turn = !same; tip.hidden = true; sync(); });
+  }));
   legend(); reading();
 }
 
@@ -2317,7 +2344,7 @@ function legend() {
   $('legend').innerHTML = (mode === 'gauge' ? sw('background:var(--surface);outline:1px solid var(--muted)', 'seats on the aircraft') + sw('background:var(--local)', 'sold, local') + sw('background:var(--flow)', 'sold, connecting') + sw('background:var(--ink);height:4px', 'seat requests it could not take (doubled: over 50)')
     : mode === 'diff' ? `<span>seats sold against the same flight's other ${day < 0 ? 'days' : DOW[dates[day].getUTCDay()] + 's'}:</span>` + [['dn3', '30+ points emptier'], ['dn2', '15–30'], ['dn1', '5–15'], ['surface);outline:1px solid var(--muted', 'within 5'], ['dp1', '5–15'], ['dp2', '15–30'], ['dp3', '30+ points fuller']].map(([c, t]) => sw(`background:var(--${c})`, t)).join('') + sw('background:linear-gradient(90deg,var(--local) 50%,var(--flow) 50%)', 'strip and margin: local, connecting')
     : sw('background:var(--ink-2)', '114-seat 737-700') + sw('background:var(--muted);height:5px', '64-seat E175')) + hubgap
-    + (sel ? `<span><svg width="22" height="8" style="width:22px"><line x1="0" y1="4" x2="22" y2="4" stroke="var(--flow)" stroke-width="4"/></svg>passengers connecting</span><span><svg width="22" height="8" style="width:22px"><line x1="0" y1="4" x2="22" y2="4" stroke="var(--over)" stroke-width="1.4" stroke-dasharray="3 3"/></svg>near miss</span>` : '');
+    + (sel ? `<span><svg width="22" height="8" style="width:22px"><line x1="0" y1="4" x2="22" y2="4" stroke="var(--flow)" stroke-width="4"/></svg>passengers connecting</span><span><svg width="22" height="8" style="width:22px"><line x1="0" y1="4" x2="22" y2="4" stroke="var(--over)" stroke-width="1.4" stroke-dasharray="3 3"/></svg>near miss</span>` + (turn && turnOf(byId[sel]) ? `<span><b style="color:var(--ink)">BOS</b>&nbsp;city on both sides of this out-and-back</span>` : '') : '');
 }
 function spark(l) {
   const w = 236, h = 50, cw = w / ND; let s = `<svg viewBox="0 0 ${w} ${h}" role="img" aria-label="Seats sold on each day of the month">`;
@@ -2332,11 +2359,20 @@ function reading() {
       : `${AC.length} aircraft flew ${L.length} flights; <b>${pct(p / s)}</b> of seats were sold and <b>$${num(sum(L.map(l => v(l.rev))))}</b> was booked. ${day < 0 ? '' : `<b>${full}</b> flights were full. `}<b>${num(sum(L.map(l => v(l.ref))))}</b> seat requests could not be taken by the flight asked, and <b>${num(v(D.lost))}</b> one-way trips could not be seated on any flight. Click a flight to trace its passengers.`) + `</div>`;
     return;
   }
-  const x = byId[sel], ls = links(x);
+  const x = byId[sel], tp = turn ? turnOf(x) : null;
+  if (tp) {
+    const [A, B] = tp, ls = turnLinks(tp), inn = ls.filter(k => !k.onward && !k.miss), out = ls.filter(k => k.onward && !k.miss), uniq = a => [...new Set(a)];
+    const ci = uniq(inn.map(k => k.a.o)), co = uniq(out.map(k => k.b.d)), both = ci.filter(c => co.includes(c)), oi = ci.filter(c => !co.includes(c)), oo = co.filter(c => !ci.includes(c)), dm = dayMirror(A.o, A.d, B.d);
+    el.innerHTML = `<div><b class="mono">${A.o} → ${A.d} → ${B.d}</b> out and back: OC ${A.fn} leaves ${clock(A.dep)}, OC ${B.fn} is back at ${clock(B.arr)}, ${B.dep - A.arr} min at ${A.d}. ` + (mode === 'plain' ? '' : `<b>${Day()}:</b> ${cnt(sum(inn.map(k => k.pax)))} connecting passengers reached ${A.d} and ${cnt(sum(out.map(k => k.pax)))} left it. `)
+      + `The schedule connects ${A.d} from ${ci.length} cities and to ${co.length} here; <b>${both.length} are on both sides</b> (bold on the chart). Only into ${A.d}: ${oi.join(', ') || 'none'}. Only out of it: ${oo.join(', ') || 'none'}.<br>Across the whole day ${A.d} can be reached from ${dm.nin} cities and can reach ${dm.nout}; <b>${dm.both} work both ways</b>${dm.one.length ? ` and ${dm.one.length} in one direction only (${dm.one.join(', ')})` : ', with none one-way'}.</div>`;
+    return;
+  }
+  const ls = links(x);
   if (mode === 'plain') { const ok = ls.filter(k => !k.miss), ms = ls.filter(k => k.miss); el.innerHTML = `<div><b class="mono">OC ${x.fn} ${x.o} → ${x.d}</b> ${clock(x.dep)}–${clock(x.arr)}, aircraft ${String(x.ac_.n).padStart(2, '0')}, ${x.seats} seats. The schedule allows <b>${plural(ok.filter(k => !k.onward).length, 'connection')}</b> into it and <b>${ok.filter(k => k.onward).length}</b> out of it${ms.length ? `, with ${ms.length} more that miss by under ${Math.max(...ms.map(k => k.short)) + 1} minutes` : ''}. Pick another view to see how many people used each.</div>`; return; }
   const used = ls.filter(k => !k.miss && k.pax > 0).sort((a, b) => b.pax - a.pax), miss = ls.filter(k => k.miss), idle = ls.filter(k => !k.miss && k.pax <= 0), p = v(x.pax), f = v(x.flow), r = v(x.ref), so = x.pax.filter(q => q >= x.seats).length;
   const side = on => { const u = used.filter(k => k.onward === on); return u.length ? `<b>${cnt(sum(u.map(k => k.pax)))}</b> ${on ? 'went on to' : 'came off'} ${plural(u.length, 'flight')}: ${u.slice(0, 4).map(k => `${on ? k.other.d : k.other.o} ${cnt(k.pax)} <span style="color:var(--muted)">(${k.gap} min)</span>`).join(', ')}${u.length > 4 ? ', …' : ''}` : ''; };
-  el.innerHTML = `<div><b class="mono">OC ${x.fn} ${x.o} → ${x.d}</b> ${clock(x.dep)}–${clock(x.arr)}, aircraft ${String(x.ac_.n).padStart(2, '0')}. <b>${Day()}:</b> ${cnt(p)} of ${x.seats} sold (${cnt(p - f)} local, ${cnt(f)} connecting)${r >= .05 ? `, ${plural(r, 'request')} not seated` : ''}, $${num(v(x.rev))} booked. Month: ${pct(sum(x.pax) / (x.seats * ND))} full, sold out ${so} of ${ND} days.<br>${[side(false), side(true)].filter(Boolean).join('. ') || 'Nobody connected to or from it'}.${idle.length ? ` ${plural(idle.length, 'legal connection')} unused.` : ''}${miss.length ? ` ${plural(miss.length, 'near miss').replace('misss', 'misses')}, the closest ${Math.min(...miss.map(k => k.short))} min short.` : ''}</div>${spark(x)}`;
+  el.innerHTML = `<div><b class="mono">OC ${x.fn} ${x.o} → ${x.d}</b> ${clock(x.dep)}–${clock(x.arr)}, aircraft ${String(x.ac_.n).padStart(2, '0')}. <b>${Day()}:</b> ${cnt(p)} of ${x.seats} sold (${cnt(p - f)} local, ${cnt(f)} connecting)${r >= .05 ? `, ${plural(r, 'request')} not seated` : ''}, $${num(v(x.rev))} booked. Month: ${pct(sum(x.pax) / (x.seats * ND))} full, sold out ${so} of ${ND} days.<br>${[side(false), side(true)].filter(Boolean).join('. ') || 'Nobody connected to or from it'}.${idle.length ? ` ${plural(idle.length, 'legal connection')} unused.` : ''}${miss.length ? ` ${plural(miss.length, 'near miss').replace('misss', 'misses')}, the closest ${Math.min(...miss.map(k => k.short))} min short.` : ''}${turnOf(x) ? ' <button type="button" class="plain" id="oab" style="padding:1px 8px">Show its out-and-back</button>' : ''}</div>${spark(x)}`;
+  const ob = $('oab'); if (ob) ob.addEventListener('click', () => { turn = true; sync(); });
 }
 function sync() {
   for (const [id, val] of [['mode', mode], ['sort', sort], ['zoom', zoom]]) [...$(id).children].forEach(b => b.setAttribute('aria-pressed', b.dataset.v === val));
@@ -2364,6 +2400,11 @@ addEventListener('keydown', ev => { if (ev.key === 'Escape' && sel) { sel = null
     const waitOf = f => { let n = 0, m = 0; pairs.forEach(p => { if (p.a.d === h && f(p.a.arr)) { const x = sum(p.vals); n += x; m += x * (p.b.dep - p.a.arr); } }); return m / Math.max(1, n); };
     out.push(`<b>${HUB_NAME[h]}: ${g} aircraft on the ground at ${clock(gt)}, with ${num(at(wait[h], gt))} passengers between flights.</b> The most passengers between flights is ${num(w)} at ${clock(wt)}, when ${at(ground[h], wt)} aircraft are on the ground. Passengers who arrive before 10:00 wait ${num(waitOf(t => t < 600))} minutes for their next flight on average; those who arrive after noon wait ${num(waitOf(t => t >= 720))}.`);
   });
+  let tb = 0, to = 0, worst = ['', 0]; const tm = [];
+  HUBS.forEach(h => [...new Set(L.filter(l => l.o === h && !HUBS.includes(l.d)).map(l => l.d))].forEach(sp => { const m = dayMirror(h, sp, h); tb += m.both; to += m.one.length; if (m.one.length > worst[1]) worst = [sp, m.one.length]; }));
+  AC.forEach(a => a.legs.forEach(l => { const t = l.d !== a.hub && !HUBS.includes(l.d) && HUBS.includes(l.o) ? turnOf(l) : null; if (!t || t[0] !== l) return; const ls = turnLinks(t).filter(k => !k.miss), cs = new Set(ls.map(k => k.onward ? k.b.d : k.a.o)), ms = new Set(ls.filter(k => k.match).map(k => k.onward ? k.b.d : k.a.o)); if (cs.size) tm.push(ms.size / cs.size); }));
+  tm.sort((p, q) => p - q);
+  out.push(`<b>Connections mirror over the day, not at each turn.</b> On a typical out-and-back from a hub, ${pct(tm[Math.floor(tm.length / 2)])} of the cities that feed the flight out are also fed by the flight back. Over the whole day ${num(tb)} airport-to-city connections work in both directions and ${num(to)} in one only; ${D.airports[worst[0]].city} (${worst[0]}) has the most one-way connections, ${worst[1]}.`);
   const twins = {}; AC.forEach(a => { (twins[a.hub + a.key] = twins[a.hub + a.key] || []).push(a); });
   out.push(`<b>${Object.values(twins).filter(t => t.length > 1).reduce((s, t) => s + t.length, 0)} of ${AC.length} aircraft share their airports with one other aircraft</b>, and ${AC.filter(a => a.rep > 1).length} repeat one loop at least twice a day.`);
   $('findings').innerHTML = out.map(t => `<li>${t}</li>`).join('');
