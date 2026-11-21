@@ -13,6 +13,7 @@ Usage:
     python3 tools/viz_data.py --journeys --inject viz/journey-flows.html
     python3 tools/viz_data.py --journeys --inject viz/fare-split.html
     python3 tools/viz_data.py --journeys --inject viz/hub-compass.html
+    python3 tools/viz_data.py --journeys --inject viz/leg-flows.html
     python3 tools/viz_data.py --loads --inject viz/load-calendar.html
     python3 tools/viz_data.py --loads --inject viz/network-treemap.html
     python3 tools/viz_data.py --loads --inject viz/flight-profiles.html
