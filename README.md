@@ -31,14 +31,19 @@ Not production code. Nothing here is deployed.
     Datadog plan versus reality; what nobody is watching.
 13. [docs/13-frontend-architecture.md](docs/13-frontend-architecture.md) — the monorepo, the web app's
     anatomy, how a page gets data (Server Actions), uploads via Vercel Blob, and doc drift.
-14. [docs/glossary.md](docs/glossary.md) — airline and Databricks vocabulary you will hit immediately.
-15. [docs/open-questions.md](docs/open-questions.md) — things the code doesn't answer; ask a human.
+14. [docs/14-data-visualizations.md](docs/14-data-visualizations.md) — the visualization sketches of the
+    synthetic airline: what each showed, what the data turned out to be, known problems.
+15. [docs/15-visualization-product-proposal.md](docs/15-visualization-product-proposal.md) — which of
+    those views belong in the product, in tiers, and what a real integration needs.
+16. [docs/glossary.md](docs/glossary.md) — airline and Databricks vocabulary you will hit immediately.
+17. [docs/open-questions.md](docs/open-questions.md) — things the code doesn't answer; ask a human.
    Prioritised one-pager (shared doc): [Onboarding: open questions, prioritised](https://claude.ai/artifact/4HP4HUsRtsDamkzK3zocxr).
 
 ## Layout
 
 ```
 docs/    numbered explainers, built up in layers (overview first, then deep dives)
+prompts/ prompts for future sessions (realistic-demo-data.md is the next one)
 tools/   scripts we write to explore the repos (each one documents its own usage)
          nbcode.py  print notebook source as text, never outputs (they may hold client data)
          viz_data.py  run the warehouse repo's synthetic-airline simulator and build the data behind viz/
