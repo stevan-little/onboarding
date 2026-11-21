@@ -61,6 +61,8 @@ viz/     data visualizations of the synthetic "Odysee Air" airline (no client da
                            brushing and a correlation table
          flight-scatter-matrix.html  sketch 13: scatterplot matrix of the same seven measures, with
                            histograms, correlations and linked box selection
+         data-shapes-3d.html  five rotatable 3D sketches: space-time block, hub fountains, load
+                           landscape, flight cloud, hubs as vases (rebuild with viz_data.py --gantt)
          leg-flows.html    sketch 15: every route at a hub as a bar of where its passengers are really going
          hub-gantt.html    sketch 14: the aircraft-rotation Gantt, with loads, refused demand, hub
                            strips, a day picker and passenger-weighted connections
