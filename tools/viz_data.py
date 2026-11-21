@@ -14,7 +14,7 @@ Usage:
     python3 tools/viz_data.py --journeys --inject viz/fare-split.html
     python3 tools/viz_data.py --journeys --inject viz/hub-compass.html
     python3 tools/viz_data.py --journeys --inject viz/leg-flows.html
-    python3 tools/viz_data.py --loads --inject viz/load-calendar.html
+    python3 tools/viz_data.py --year --inject viz/load-calendar.html
     python3 tools/viz_data.py --loads --inject viz/network-treemap.html
     python3 tools/viz_data.py --loads --inject viz/flight-profiles.html
     python3 tools/viz_data.py --loads --inject viz/flight-scatter-matrix.html
@@ -53,6 +53,9 @@ def main() -> None:
                     help="rebuild the data inside viz/hub-gantt.html: every flight on every day "
                          "(seats sold, connecting, revenue, requests refused for lack of seats) and "
                          "the passengers on every pair of connecting flights (about 25s)")
+    ap.add_argument("--year", action="store_true",
+                    help="passengers and revenue per airport-and-hub pairing for every day of 2027 "
+                         "(simulates the whole year on the February schedule, about 5 minutes)")
     ap.add_argument("--inject", help="HTML page whose <script id=data> block gets the JSON")
     args = ap.parse_args()
     sys.path.insert(0, args.warehouse)
@@ -112,6 +115,34 @@ def main() -> None:
         _emit(args, {"meta": {**meta, "focus_day": focus_day.isoformat(), "first": first.isoformat(),
                               "last": last.isoformat(), "bands": len(schedule.legs)},
                      "airports": airports, "legs": legs})
+        return
+
+    if args.year:
+        y0, y1 = date(2027, 1, 1), date(2027, 12, 31)
+        n, hubs = (y1 - y0).days + 1, ("PIT", "GSO")
+
+        def pairing(leg):  # "BOS-PIT": the airport, then the hub its flights go to and from
+            if leg["o"] in hubs and leg["d"] in hubs:
+                return "GSO-PIT"
+            return f'{leg["d"]}-{leg["o"]}' if leg["o"] in hubs else f'{leg["o"]}-{leg["d"]}'
+
+        key = {leg["id"]: pairing(leg) for leg in legs}
+        ser = {}
+        for leg in legs:
+            ser.setdefault(key[leg["id"]], {"seats": 0, "pax": [0] * n, "rev": [0.0] * n})["seats"] += leg["seats"]
+        sim = Simulation(network, meta["seed"], date.fromisoformat(meta["reference_date"]), 1.0)
+        for day, _ in sim.run(y0, y1):
+            i = (day.day - y0).days
+            for booking, di, li in day.coupons:
+                direction = booking.directions[di]
+                leg_id = direction.path.leg_ids[li]
+                cell, party = ser[key[leg_id]], len(booking.passengers)
+                cell["pax"][i] += party
+                cell["rev"][i] += party * coupon_cents(booking, direction, network.miles(leg_id)) / 100
+        _emit(args, {"meta": {**meta, "scale": 1.0, "first": y0.isoformat(), "last": y1.isoformat()},
+                     "airports": airports,
+                     "series": [{"k": k, "seats": v["seats"], "pax": v["pax"], "rev": [round(x) for x in v["rev"]]}
+                                for k, v in sorted(ser.items())]})
         return
 
     if args.gantt:
